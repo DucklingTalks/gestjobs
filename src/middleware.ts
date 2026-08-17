@@ -1,6 +1,10 @@
 import { type NextRequest, NextResponse } from "next/server";
 
-import { createServerClient, type CookieOptions } from "@supabase/ssr";
+import {
+  createServerClient,
+  type CookieOptionsWithName,
+  type SetAllCookies,
+} from "@supabase/ssr";
 
 /**
  * Refreshes the Supabase auth session on every request that matches the
@@ -22,11 +26,11 @@ export async function middleware(request: NextRequest) {
         getAll() {
           return request.cookies.getAll();
         },
-        setAll(cookiesToSet) {
+        setAll: ((cookiesToSet) => {
           cookiesToSet.forEach(({ name, value, options }) => {
-            response.cookies.set(name, value, options as CookieOptions);
+            response.cookies.set(name, value, options as CookieOptionsWithName);
           });
-        },
+        }) as SetAllCookies,
       },
     },
   );

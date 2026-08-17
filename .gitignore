@@ -21,6 +21,9 @@ out/
 build/
 next-env.d.ts
 
+# TypeScript incremental cache
+*.tsbuildinfo
+
 # Environment files (keep .env.example tracked; exclude secrets)
 .env
 .env.local
