@@ -1,0 +1,17 @@
+# OS / Editor artifacts
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+.vscode/
+.idea/
+
+# Logs
+*.log
+
+# Temporary files
+*.tmp
+.cache/
+
+# NOTE: OpenSpec artifacts are intentionally NOT excluded.

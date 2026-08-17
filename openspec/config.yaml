@@ -1,0 +1,79 @@
+# OpenSpec Config — gestjobs
+
+schema: spec-driven
+
+context: |
+  Project: gestjobs
+  Working directory: C:\Users\jlima\Documents\Proyects\gestjobs
+  Stack: not yet detected (empty project skeleton — only .atl/ present, no source or manifest files)
+  Architecture: not yet defined
+  Testing: not yet established (no test runner, no manifest)
+  Style: not yet established
+  Artifact store: openspec
+  Execution mode: interactive
+  Delivery strategy: ask-always
+  Review budget lines: 400
+
+# Strict TDD is disabled because no test runner has been provisioned yet.
+# sdd-apply will assert tests fail-then-pass only when this flag is true and a
+# test command is configured under rules.apply.test_command.
+strict_tdd: false
+
+testing:
+  runner:
+    available: false
+    command: ""
+    framework: ""
+  layers:
+    unit:
+      available: false
+      tool: ""
+    integration:
+      available: false
+      tool: ""
+    e2e:
+      available: false
+      tool: ""
+  coverage:
+    available: false
+    command: ""
+  quality:
+    linter:
+      available: false
+      command: ""
+    type_checker:
+      available: false
+      command: ""
+    formatter:
+      available: false
+      command: ""
+
+rules:
+  proposal:
+    - Restate the user outcome, not the implementation detail
+    - List explicit assumptions and unknowns (stack, runtime, deployment)
+    - Include rollback plan for risky changes
+  specs:
+    - Use Given/When/Then for every scenario
+    - Use RFC 2119 keywords (MUST, SHALL, SHOULD, MAY)
+    - Each delta MUST declare ADDED, MODIFIED, REMOVED, or RENAMED
+  design:
+    - Document architecture decisions with rationale and tradeoffs
+    - Sequence diagrams for any cross-component flow
+    - Flag cross-cutting concerns (auth, persistence, observability) explicitly
+  tasks:
+    - Group by phase, hierarchical numbering (1, 1.1, 1.2)
+    - Each task completable in a single session
+    - Mark dependencies between tasks
+  apply:
+    - Follow existing code patterns once the stack is chosen
+    - Update this file with tdd/test_command as soon as a runner is provisioned
+    tdd: false
+    test_command: ""
+  verify:
+    test_command: ""
+    build_command: ""
+    coverage_threshold: 0
+  archive:
+    - Warn before merging destructive deltas (REMOVED, RENAMED)
+    - Preserve audit trail under openspec/changes/archive/YYYY-MM-DD-{name}/
