@@ -14,4 +14,26 @@ Thumbs.db
 *.tmp
 .cache/
 
+# Next.js
+node_modules/
+.next/
+out/
+build/
+next-env.d.ts
+
+# TypeScript incremental cache
+*.tsbuildinfo
+
+# Environment files (keep .env.example tracked; exclude secrets)
+.env
+.env.local
+.env.*.local
+
+# Supabase local artifacts
+supabase/.branches
+supabase/.temp
+
+# Test / coverage (provisioned in later PRs)
+coverage/
+
 # NOTE: OpenSpec artifacts are intentionally NOT excluded.
