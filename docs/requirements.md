@@ -106,6 +106,7 @@ After creating a Supabase project, apply the schema and seed data.
 | Variable | Example value | Where it comes from |
 |----------|---------------|---------------------|
 | `NEXT_PUBLIC_APP_URL` | `http://localhost:3000` | Your local/dev base URL |
+| `SUPABASE_PROJECT_REF` | `abc123` | Supabase project URL/dashboard; used by the CLI |
 | `NEXT_PUBLIC_SUPABASE_URL` | `https://abc123.supabase.co` | Supabase Dashboard → API |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | `eyJhbGciOiJIUzI1NiIs...` | Supabase Dashboard → API (public anon key) |
 | `SUPABASE_SERVICE_ROLE_KEY` | `eyJhbGciOiJIUzI1NiIs...` | Supabase Dashboard → API (service role key — keep secret) |
