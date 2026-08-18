@@ -4,10 +4,10 @@
 //   supabase gen types typescript --project-id <ref> > src/lib/supabase/database.types.ts
 // after the Supabase project is provisioned and migrations are applied.
 //
-// Until then, the typed Supabase clients in client.ts and server.ts fall
-// back to `any` for the Database generic. Application code that depends
-// on table shapes is added in later PRs (PR 4 applications, PR 3 contacts,
-// etc.) and will pick up the real types when this file is replaced.
+// Until then, the typed Supabase clients in client.ts and server.ts pick up
+// per-table shapes incrementally. Application code that depends on table
+// shapes adds its table here when it lands (see PR 2 adding `platforms`).
+// PR 6 will replace this file with the output of `supabase gen types`.
 
 export type Json =
   | string
@@ -17,9 +17,47 @@ export type Json =
   | { [key: string]: Json | undefined }
   | Json[];
 
+/**
+ * Shape of one row from the `platforms` table.
+ *
+ * Source of truth: supabase/migrations/001_initial_schema.sql
+ *   id          uuid primary key default gen_random_uuid()
+ *   user_id     uuid references auth.users(id) on delete cascade -- null for seeds
+ *   name        text not null
+ *   hostname    text not null
+ *   is_custom   boolean not null default false
+ *   created_at  timestamptz not null default now()
+ */
+type PlatformRow = {
+  id: string;
+  user_id: string | null;
+  name: string;
+  hostname: string;
+  is_custom: boolean;
+  created_at: string;
+};
+
+type PlatformInsert = {
+  id?: string;
+  user_id?: string | null;
+  name: string;
+  hostname: string;
+  is_custom?: boolean;
+  created_at?: string;
+};
+
+type PlatformUpdate = Partial<PlatformInsert>;
+
 export interface Database {
   public: {
-    Tables: Record<string, never>;
+    Tables: {
+      platforms: {
+        Row: PlatformRow;
+        Insert: PlatformInsert;
+        Update: PlatformUpdate;
+        Relationships: [];
+      };
+    };
     Views: Record<string, never>;
     Functions: Record<string, never>;
     Enums: Record<string, never>;
