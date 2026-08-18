@@ -29,6 +29,10 @@ This repository currently contains the planning and specification artifacts for 
 - [OpenSpec Config](openspec/config.yaml) — project configuration and rules
 - [.atl Skill Registry](.atl/skill-registry.md) — indexed AI skills used during development
 
+## Service Provisioning
+
+Before implementation continues, follow the [service provisioning guides](docs/services/README.md) for Supabase, Resend, Vercel, and GitHub Actions.
+
 ## Status
 
 > **Planning phase** — implementation will follow once the specification set is approved.
