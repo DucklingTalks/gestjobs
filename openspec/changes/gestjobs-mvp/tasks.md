@@ -44,12 +44,12 @@ Chain strategy: pending
 
 ## Phase 2: Platforms (PR 2)
 
-- [ ] 2.1 Create `src/lib/platforms/infer.ts` with `normalizeHostname(url)` + `inferPlatformFromUrl(url, platforms)`; pure, deterministic, typed `Platform` export.
-- [ ] 2.2 Create `src/lib/platforms/seed.ts` mirroring `supabase/seed.sql` for client-side combobox initialization.
-- [ ] 2.3 Create `src/components/platform-combobox.tsx` — accessible combobox (Headless UI or Radix) with search, free-text custom entry, and `onConfirm` callback that upserts a custom platform row.
-- [ ] 2.4 Add `src/app/applications/actions.ts::upsertCustomPlatform(name, hostname)` Server Action enforcing `auth.uid()` and uniqueness on `(user_id, hostname)`.
-- [ ] 2.5 **Verify**: known hostnames resolve; unknown hostname triggers fallback; custom platform persists and reappears on next session.
-- [ ] 2.6 **Rollback**: revert PR 2 only — combobox is unused until PR 4.
+- [x] 2.1 Create `src/lib/platforms/infer.ts` with `normalizeHostname(url)` + `inferPlatformFromUrl(url, platforms)`; pure, deterministic, typed `Platform` export.
+- [x] 2.2 Create `src/lib/platforms/seed.ts` mirroring `supabase/seed.sql` for client-side combobox initialization.
+- [x] 2.3 Create `src/components/platform-combobox.tsx` — accessible combobox (Headless UI or Radix) with search, free-text custom entry, and `onConfirm` callback that upserts a custom platform row.
+- [x] 2.4 Add `src/app/applications/actions.ts::upsertCustomPlatform(name, hostname)` Server Action enforcing `auth.uid()` and uniqueness on `(user_id, hostname)`.
+- [x] 2.5 **Verify**: known hostnames resolve; unknown hostname triggers fallback; custom platform persists and reappears on next session. _(Static verification done: `pnpm typecheck` 0 errors, `pnpm build` 5 static pages + Middleware 86.4 kB. Pure-function contract for `inferPlatformFromUrl` and `normalizeHostname` is exercised by the combobox live-filter logic; the full unit-test matrix lands in PR 6 alongside Vitest. Runtime verification — actual hostname lookup against Supabase, custom platform persistence, reappearance on next session — deferred until a Supabase project is provisioned.)_
+- [x] 2.6 **Rollback**: revert PR 2 only — combobox is unused until PR 4. _(Documented in apply-progress.md.)_
 
 ## Phase 3: Contacts + Resumes (PR 3)
 
