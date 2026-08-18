@@ -62,15 +62,15 @@ Chain strategy: feature-branch-chain
 
 ## Phase 4: Applications + Status Workflow (PR 4)
 
-- [ ] 4.1 Create `src/lib/validation/application.ts` — Zod schemas rejecting empty `company_name`/`position_title`; `platform_url` must parse as HTTP(S); `proposalUrl` validated separately.
-- [ ] 4.2 Create `src/app/applications/page.tsx` — list view grouped by status; joins `applications × platforms × statuses`.
-- [ ] 4.3 Create `src/app/applications/new/page.tsx` — form integrating `platform-combobox` + URL inference + job-proposal (text/file/URL) inputs.
-- [ ] 4.4 Create `src/app/applications/actions.ts` — `createApplication`, `updateApplication`, `deleteApplication` Server Actions; FK cascade + RLS.
-- [ ] 4.5 Create `src/app/applications/[id]/page.tsx` — detail view: status timeline, attached resume, linked contacts with roles, job proposal.
-- [ ] 4.6 Add `changeApplicationStatus(applicationId, toStatusId)` — transactional insert into `application_status_history` + update `applications.updated_at`.
-- [ ] 4.7 Add `attachResume` + `attachContact` — replaces prior `application_resumes` (PK on `application_id`); inserts `application_contacts`.
-- [ ] 4.8 **Verify**: create → status change (history row) → attach resume + contact → detach (join deleted, contact retained) → delete (cascade removes history + attachments).
-- [ ] 4.9 **Rollback**: revert PR 4 — Applications depend on PR 2 + PR 3, which remain deployable.
+- [x] 4.1 Create `src/lib/validation/application.ts` — Zod schemas rejecting empty `company_name`/`position_title`; `platform_url` must parse as HTTP(S); `proposalUrl` validated separately.
+- [x] 4.2 Create `src/app/applications/page.tsx` — list view grouped by status; joins `applications × platforms × statuses`.
+- [x] 4.3 Create `src/app/applications/new/page.tsx` — form integrating `platform-combobox` + URL inference + job-proposal (text/file/URL) inputs.
+- [x] 4.4 Create `src/app/applications/actions.ts` — `createApplication`, `updateApplication`, `deleteApplication` Server Actions; FK cascade + RLS.
+- [x] 4.5 Create `src/app/applications/[id]/page.tsx` — detail view: status timeline, attached resume, linked contacts with roles, job proposal.
+- [x] 4.6 Add `changeApplicationStatus(applicationId, toStatusId)` — transactional insert into `application_status_history` + update `applications.updated_at`.
+- [x] 4.7 Add `attachResume` + `attachContact` — replaces prior `application_resumes` (PK on `application_id`); inserts `application_contacts`.
+- [x] 4.8 **Verify**: create → status change (history row) → attach resume + contact → detach (join deleted, contact retained) → delete (cascade removes history + attachments). _(Static verification done on `feat/pr4-applications`: `pnpm typecheck` 0 errors and `pnpm build` succeeds with 9 routes — `/applications`, `/applications/[id]`, `/applications/new` (3.94 kB) dynamic; other routes unchanged. Runtime verification — cross-user RLS, FK cascade, file lifecycle, status-history transactional rollback — deferred until a Supabase project is provisioned.)_
+- [x] 4.9 **Rollback**: revert PR 4 — Applications depend on PR 2 + PR 3, which remain deployable. _(Documented in apply-progress; PR 4 introduces no schema changes; database.types.ts is a hand-maintained stub union with PR 4 shapes added.)_
 
 ## Phase 5: Reminders + Dashboard (PR 5)
 

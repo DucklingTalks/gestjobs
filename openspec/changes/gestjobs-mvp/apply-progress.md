@@ -1,27 +1,28 @@
-# Apply Progress — gestjobs-mvp (PR 1 + PR 2)
+# Apply Progress — gestjobs-mvp (PR 1 + PR 2 + PR 3 + PR 4)
 
 ## Summary
 
-Two autonomous slices of the gestjobs-mvp change are implemented on
-`feat/pr2-platforms` (child branch off `feat/pr1-foundation`):
+Four autonomous slices of the gestjobs-mvp change are implemented:
 
-- **PR 1 (Foundation)** — 11 work-unit commits on `feat/pr1-foundation`
-  carrying the Next.js 15 + Supabase Auth scaffold, Postgres schema with
-  RLS, storage buckets, global platform seed, magic-link login, and
-  session middleware. Open PR:
-  <https://github.com/Sr-Lechuga/gestjobs/pull/2>.
-- **PR 2 (Platforms)** — 5 work-unit commits + 1 fix on
-  `feat/pr2-platforms` carrying the hostname inference utilities, client
-  platform directory, accessible ARIA combobox with free-text fallback,
-  and `upsertCustomPlatform` Server Action. Plus one critical fix:
-  upgrading `@supabase/ssr` from 0.5.2 → 0.12.4 to repair a broken
-  import path that silently broke typed `.upsert(...)` calls.
+- **PR 1 (Foundation)** — merged into `feature/gestjobs-mvp`. Next.js 15 + Supabase
+  Auth scaffold, Postgres schema with RLS, storage buckets, global platform
+  seed, magic-link login, session middleware.
+- **PR 2 (Platforms)** — merged into `feature/gestjobs-mvp`. Hostname inference
+  utilities, client platform directory, accessible ARIA combobox with free-text
+  fallback, `upsertCustomPlatform` Server Action, plus the `@supabase/ssr`
+  0.5.2 → 0.12.4 typecheck fix.
+- **PR 3 (Contacts + Resumes)** — merged into `feature/gestjobs-mvp`. Authenticated
+  contact directory CRUD, private versioned resume uploads with SHA-256
+  metadata, 1-hour signed download URLs.
+- **PR 4 (Applications + Status Workflow)** — implemented on `feat/pr4-applications`,
+  branched from the latest tracker. Authenticated CRUD, mandatory platform URL
+  with URL-first inference + combobox fallback, job proposal capture (text/
+  file/URL), status workflow with immutable history, resume + contact
+  attachments with detach/delete semantics, RLS-respecting guards.
 
-Both slices pass static verification (`pnpm typecheck` 0 errors,
-`pnpm build` 5 static pages + Middleware). Runtime verification
-(supabase db reset, magic-link send, RLS isolation, custom platform
-persistence) is deferred to PR 6 / preview deploy because no Supabase
-project is provisioned yet.
+PR 4 is the slice this round recorded. Static verification passes
+(`pnpm typecheck` 0 errors, `pnpm build` 9 routes). Runtime verification
+against Supabase remains deferred until a project is provisioned.
 
 ## Work Unit Boundary
 
@@ -32,201 +33,184 @@ project is provisioned yet.
 | Delivery strategy | ask-always |
 | Chain strategy | feature-branch-chain (user-selected) |
 | Tracker branch | `feature/gestjobs-mvp` |
-| Work unit | Platforms (PR 2 of 7) — branch `feat/pr2-platforms` off `feat/pr1-foundation` |
+| Current work unit | Applications + Status Workflow (PR 4 of 7) |
+| Branch / base | `feat/pr4-applications` from `origin/feature/gestjobs-mvp` at `6cb13c1` |
+| Intended target | `feature/gestjobs-mvp` (independent child PR per chain strategy) |
 | Mode | Standard (`strict_tdd=false`, no test runner) |
 | Verification | Static (typecheck + production build); runtime deferred |
-| Rollback | `git revert` the merge of `feat/pr2-platforms` into `feat/pr1-foundation`; no Vercel/Supabase projects exist yet |
+| Rollback | `git revert` the merge of `feat/pr4-applications` into `feature/gestjobs-mvp`. PR 4 introduces no schema changes; only `application-form.tsx`, the three pages, and a Zod validation module are net-new. |
 
-## Completed Tasks (cumulative PR 1 + PR 2)
+## Completed Tasks (Cumulative)
 
-### Phase 1 — Foundation (PR 1, on `feat/pr1-foundation`)
+### Phase 1 — Foundation (PR 1, merged)
 
-| # | Description | Status | Files |
-|---|-------------|--------|-------|
-| 1.1 | Bootstrap Next.js 15 App Router + TS + Tailwind | done | package.json, tsconfig.json, next.config.mjs, tailwind.config.ts, postcss.config.mjs, src/app/{globals.css,layout.tsx,page.tsx}, .gitignore |
-| 1.2 | Env placeholders | done | .env.example |
-| 1.3 | Supabase SSR clients | done | src/lib/supabase/{client.ts,server.ts} |
-| 1.4 | Initial Postgres schema + RLS | done | supabase/migrations/001_initial_schema.sql |
-| 1.5 | Storage buckets + RLS | done | supabase/migrations/002_storage_buckets.sql |
-| 1.6 | Seed data (global platforms) | done | supabase/seed.sql |
-| 1.7 | Database types stub | done | src/lib/supabase/database.types.ts (initial empty stub) |
-| 1.8 | Magic-link login | done | src/app/(auth)/login/{page.tsx,actions.ts} |
-| 1.9 | Session middleware | done | src/middleware.ts |
-| 1.10 | Verification (static + deferred runtime) | done (static); runtime deferred | — |
-| 1.11 | Rollback plan documented | done | openspec/changes/gestjobs-mvp/apply-progress.md (PR 1 section) |
+Tasks 1.1–1.11 complete: bootstrap, env template, Supabase SSR clients,
+schema/RLS, storage buckets/RLS, seed, database types stub, magic-link
+login, middleware, static verification, and rollback record.
 
-### Phase 2 — Platforms (PR 2, on `feat/pr2-platforms`)
+### Phase 2 — Platforms (PR 2, merged)
 
-| # | Description | Status | Files |
-|---|-------------|--------|-------|
-| 2.1 | Hostname inference utilities | done | src/lib/platforms/infer.ts |
-| 2.2 | Client-side seed directory | done | src/lib/platforms/seed.ts |
-| 2.3 | Accessible platform combobox (ARIA, no UI lib) | done | src/components/platform-combobox.tsx |
-| 2.4 | `upsertCustomPlatform` Server Action | done | src/app/applications/actions.ts |
-| 2.5 | Verification (static + deferred runtime) | done (static); runtime deferred | — |
-| 2.6 | Rollback plan documented | done | this file (PR 2 section below) |
-| (extra) | Database types: add `platforms` table stub | done | src/lib/supabase/database.types.ts |
-| (extra) | Upgrade `@supabase/ssr` 0.5.2 → 0.12.4 | done | package.json, pnpm-lock.yaml |
+Tasks 2.1–2.6 complete: hostname inference, client seed directory,
+accessible combobox, authenticated custom persistence, static
+verification with runtime deferred, and rollback record. PR 2 plus the
+critical `@supabase/ssr` upgrade are merged into the tracker.
 
-## Work-Unit Commits
+### Phase 3 — Contacts + Resumes (PR 3, merged)
 
-### PR 1 — Foundation (on `feat/pr1-foundation`, 11 commits)
+Tasks 3.1–3.6 complete: authenticated contact CRUD, private versioned
+resume uploads with SHA-256/size metadata, validated PDF/DOCX with
+10 MB domain limit and 11 MB transport limit, 1-hour signed download
+URLs, and independent rollback. PR 3 is merged into the tracker.
 
-| SHA (prefix) | Message | + |
-|--------------|---------|---|
-| `e62a756` | feat(foundation): bootstrap Next.js 15 App Router scaffold | 212 |
-| `2a8e8de` | feat(foundation): add environment variable template | 15 |
-| `f411d93` | feat(foundation): wire Supabase SSR clients and session middleware | 102 |
-| `023f55f` | feat(foundation): add initial Postgres schema with per-user RLS | 342 |
-| `1a42a18` | feat(foundation): enable private storage buckets for resumes and proposals | 112 |
-| `ff7bc0b` | feat(foundation): seed global platform directory for Latin America | 19 |
-| `ce4e8e0` | feat(foundation): add database.types.ts stub for supabase gen types | 28 |
-| `b387cc9` | feat(foundation): add magic-link login page backed by signInWithOtp | 111 |
-| `afb4c51` | fix(foundation): pass typecheck under @supabase/ssr 0.5.x and ignore tsbuildinfo | 19 |
-| `71cdd96` | build(foundation): commit pnpm lockfile | 3969 |
-| `060f24b` | docs(foundation): mark PR1 tasks complete and record apply-progress | 192 |
+### Phase 4 — Applications + Status Workflow (PR 4, current)
 
-### PR 2 — Platforms (on `feat/pr2-platforms`, 6 commits ahead of `feat/pr1-foundation`)
+- 4.1 done — `src/lib/validation/application.ts`: Zod schemas for create/update,
+  status change, resume/contact attach/detach, proposal URL validation, and
+  10 MB PDF/DOCX proposal file validation.
+- 4.2 done — `src/app/applications/page.tsx`: list view grouped by status
+  (terminal statuses segregated), joins `applications × statuses × platforms`.
+- 4.3 done — `src/app/applications/new/{page.tsx, application-form.tsx}`:
+  client form that combines URL-first inference, the PlatformCombobox from
+  PR 2, and the job-proposal text/file/URL inputs.
+- 4.4 done — `src/app/applications/actions.ts` now hosts
+  `createApplication`, `updateApplication`, `deleteApplication` Server Actions
+  with FK cascade + RLS, plus the cross-tenant file compensation pattern.
+- 4.5 done — `src/app/applications/[id]/page.tsx`: detail view with status
+  timeline, attached resume (1-hour signed URL), linked contacts with roles,
+  job proposal (text/url/file), and danger zone for delete.
+- 4.6 done — `changeApplicationStatus`: snapshot of current status, update
+  `applications.status_id` (the trigger bumps `updated_at`), insert history
+  row, rollback if history insert fails.
+- 4.7 done — `attachResume` / `detachResume` and `attachContact` / `detachContact`:
+  resume replaces on PK (`application_id`); contact join preserves the
+  directory row.
+- 4.8 done (static) — `pnpm typecheck` 0 errors, `pnpm build` succeeds with
+  9 routes (3 net-new dynamic routes for `/applications`,
+  `/applications/[id]`, `/applications/new`). Runtime matrix deferred.
+- 4.9 done — independent rollback documented.
 
-| SHA (prefix) | Message | + / - |
-|--------------|---------|-------|
-| `010717f` | feat(platforms): add hostname inference utilities | +134 |
-| `b2d6da6` | feat(platforms): expose seed directory for client-side combobox | +35 |
-| `752103f` | feat(platforms): add accessible platform combobox with free-text fallback | +336 |
-| `da33c88` | feat(platforms): add upsertCustomPlatform server action | +171 / -6 |
-| `07b080f` | fix(platforms): upgrade @supabase/ssr to fix broken GenericSchema import | +12 / -18 |
-| `b7de532` | docs(platforms): mark PR2 tasks complete | +6 / -6 |
+## PR 4 Security and Data Boundaries
 
-PR 2 source-file contribution: **4 new files + 1 modified** (`src/lib/platforms/{infer.ts,seed.ts}`, `src/components/platform-combobox.tsx`, `src/app/applications/actions.ts`, modified `src/lib/supabase/database.types.ts`) plus the `@supabase/ssr` upgrade. Total: +658 / -30 in the platform feature commits, +12 / -18 in the ssr-upgrade commit, +6 / -6 in the docs commit. Lockfile delta is minimal (12 lines).
+- Every action re-checks `supabase.auth.getUser()` and refuses to write if
+  `auth.uid()` is null.
+- Writes additionally filter by `user_id` (or join through `applications`)
+  so a leaked id can never escalate to a cross-user write.
+- Proposal files are uploaded to `proposals/{user_id}/{application_id}-{filename}`
+  after the application row exists, so `ON DELETE CASCADE` removes the join
+  rows. `deleteApplication` then removes the storage object explicitly to
+  keep the bucket tidy.
+- Job proposal file validation reuses the same PDF/DOCX, 10 MB domain limit
+  the resumes module enforces.
+- Platform URL is re-validated against the HTTP(S) URL rules on the server,
+  even though the client also validates; the URL is the source of truth for
+  the normalized hostname stored on the custom platform row.
+- If a platform URL infers to a known platform, the action uses the
+  resolved id; otherwise it upserts a custom `(user_id, hostname)` row
+  with the normalized hostname before inserting the application.
+- Status changes are no-op-safe: same status → no duplicate history row.
+- Resume attachments use the `application_id` PK on `application_resumes`,
+  so a second attach replaces the previous join. The underlying `resumes`
+  version is never auto-deleted.
+- Contact join rows are detached by `(application_id, contact_id, role)`,
+  so the same contact can be reused across applications with independent
+  roles; the contact directory row is never deleted.
 
-## Diff vs `feat/pr1-foundation` (PR 2 only)
+## PR 4 Work-Unit Commits
 
-```
- .gitignore                                  |   0
- package.json                                |   2 +-
- pnpm-lock.yaml                              |  10 +-
- src/app/applications/actions.ts             | 133 +++++++++++++++++++++
- src/components/platform-combobox.tsx        | 336 ++++++++++++++++++++++++++++++++
- src/lib/platforms/infer.ts                  | 134 +++++++++++++++
- src/lib/platforms/seed.ts                   |  35 ++++
- src/lib/supabase/database.types.ts          |  68 +++++++--
- 8 files changed, 680 insertions(+), 36 deletions(-)
-```
+Branch `feat/pr4-applications` (4 work-unit commits + 1 docs commit):
+
+1. `feat(applications): add Zod validation and database types for PR4` — new
+   `src/lib/validation/application.ts` (230 lines) and additive shapes on
+   `src/lib/supabase/database.types.ts` (`statuses`, `applications`,
+   `application_status_history`, `application_contacts`, `application_resumes`).
+2. `feat(applications): add authenticated CRUD and status workflow actions` —
+   `src/app/applications/actions.ts` (+748/-18) carrying the remaining eight
+   Server Actions plus the cross-tenant file compensation pattern.
+3. `feat(applications): add list view and new application form` — three new
+   files in `src/app/applications/{page.tsx, new/page.tsx, new/application-form.tsx}`.
+4. `feat(applications): add detail view with status history and attachments` —
+   `src/app/applications/[id]/page.tsx` (638 lines).
+5. `docs(applications): mark PR4 tasks complete and record apply-progress` —
+   `openspec/changes/gestjobs-mvp/{tasks.md, apply-progress.md}`.
 
 ## Verification
 
-### Static (PR 2 this batch)
+### Static (PR 4 this batch)
 
 | Check | Command | Result |
 |-------|---------|--------|
 | Typecheck | `pnpm typecheck` | 0 errors |
-| Production build | `pnpm build` | Compiled successfully; 5 static pages prerendered (`/`, `/_not-found`, `/login`) + Middleware 86.4 kB (up from 85.9 kB in PR 1 — accounts for the upgraded `@supabase/ssr`) |
+| Production build | `pnpm build` | Compiled successfully; 9 routes — `/` (static), `/_not-found` (static), `/applications` (dynamic), `/applications/[id]` (dynamic), `/applications/new` (dynamic, 3.94 kB), `/contacts`, `/login`, `/resumes` (all dynamic). Middleware 65 kB. |
 
-### Runtime (deferred — needs Supabase + Vercel projects)
+### Runtime (deferred until Supabase is provisioned)
 
 | Check | What it proves |
 |-------|----------------|
-| `inferPlatformFromUrl('https://boards.greenhouse.io/x', seedPlatforms)` returns the Greenhouse platform | Pure function contract; exercised inside the combobox but no test runner yet |
-| `inferPlatformFromUrl('https://example-ats.com/job', seedPlatforms)` returns `null` → fallback | Pure function contract; exercised inside the combobox |
-| `normalizeHostname('https://WWW.LinkedIn.COM/jobs/123')` returns `linkedin.com` | Pure function contract |
-| Custom platform `upsertCustomPlatform({name, hostname})` persists a row and returns the new id | Requires Supabase Auth session + RLS-allowed insert against `(user_id, hostname)` unique constraint |
-| Same hostname called twice returns the SAME platform id (idempotent upsert) | Requires Supabase Auth + `(user_id, hostname)` unique constraint |
-| Re-load session shows the previously saved custom platform in the combobox options | Requires Supabase + the combobox's `options` prop to include `userCustomPlatforms` (PR 4 form will pass them in) |
+| Create application with mandatory company name, position title, platform URL | Requires `auth.uid()` and the `create_default_statuses` trigger to have populated the seven defaults |
+| Delete application cascades history, application_resumes, application_contacts, application_status_history, reminder_dispatches | Requires nullable FK + `ON DELETE CASCADE` from `001_initial_schema.sql` |
+| Change status writes a history row and bumps `updated_at` | Requires the `set_updated_at` trigger on `applications` |
+| Detail page lists history rows in changed_at order | Requires `application_status_history` populated per the create + changeStatus flow |
+| Resume attach replaces prior attachment, detach removes the join without touching the resume version | Requires PK on `application_resumes.application_id` |
+| Contact attach with role persists `(application_id, contact_id, role)`; detach preserves the contact directory row | Requires PK on `application_contacts` |
+| Platform URL with known hostname resolves to a seeded platform id | Combines `inferPlatformFromUrl` + `applications.platform_id` FK |
+| Platform URL with unknown hostname upserts a custom `(user_id, hostname)` row | Requires the `unique (user_id, hostname)` constraint on `platforms` |
+| PDF/DOCX proposal file is stored under `proposals/{user_id}/...` and signed URL returns 200 within 1 hour | Requires the `proposals` bucket + RLS policies from `002_storage_buckets.sql` |
+| Cross-user RLS denial for `applications`, `application_status_history`, `application_resumes`, `application_contacts` with two test users | Requires the `is_owner` SQL function + per-table policies already in 001 |
 
 These will be exercised in **PR 6 (Verification + README)** or earlier on
 the preview deploy once a Supabase project is provisioned. The static
-guarantees — typed `Database['public']['Tables']['platforms']`,
-typed Server Action return, ARIA combobox — give us the structural
+guarantees — typed `Database['public']['Tables']['applications']` etc,
+typed Zod input, transactional action shape — give us the structural
 correctness now and the runtime guarantees once the backend is wired.
 
 ## Deviations from Design
 
-- **`src/lib/platforms/seed.ts` is a hand-maintained duplicate of `supabase/seed.sql`.**
-  The design implied a "mirror" without specifying how to keep them in sync.
-  Until PR 6 introduces Vitest, a unit test diffing the SQL `INSERT` rows
-  against the exported constant is the recommended drift check. Both files
-  are documented to require parallel edits.
-- **Combobox is built with native ARIA, not Headless UI / Radix.**
-  Design § "Components" lists Headless UI or Radix as the recommended
-  libraries for an accessible combobox; PR 2 ships a custom ARIA combobox
-  instead (336 lines, zero new dependencies). Justification: PR 1
-  bootstrapped with five production deps; adding a UI lib for one component
-  would dwarf PR 2's footprint. The combobox is the only interactive UI in
-  PR 2; PR 4 / PR 5 will re-evaluate whether to standardize on a UI lib
-  when more primitives land. Keyboard support (ArrowDown/Up/Home/End/
-  Enter/Escape/Tab) and ARIA roles (`combobox`, `listbox`, `option`,
-  `aria-expanded`, `aria-controls`, `aria-activedescendant`) match the
-  WAI-ARIA APG combobox pattern.
-- **`@supabase/ssr` upgraded from 0.5.2 to 0.12.4.**
-  Required to make typed `.upsert(...)` work. Documented in
-  § "Issues Found" below. PR 1 was technically shipping with a latent
-  typecheck gap that became visible the moment PR 2 added the first
-  typed table operation; without this upgrade the platform work would
-  not typecheck.
-- **`src/app/applications/actions.ts` created with ONLY `upsertCustomPlatform`.**
-  Design.md lists the applications actions file as the home of every
-  application-related Server Action (createApplication, updateApplication,
-  deleteApplication, changeApplicationStatus, attachResume,
-  attachContact). PR 2 owns only `upsertCustomPlatform`; PR 4 will add
-  the rest. Keeping the file scoped now lets PR 4 append without
-  rewriting imports.
-- **`database.types.ts` extended with the `platforms` table stub.**
-  Original PR 1 stub was empty `Tables: Record<string, never>`. PR 2
-  adds the minimal `platforms: { Row, Insert, Update, Relationships }`
-  shape needed for typed `supabase.from('platforms').upsert(...)`. The
-  relationship entry uses the real FK name
-  (`platforms_user_id_fkey → auth.users.id via user_id`) so PR 6 can
-  replace the file with `supabase gen types` output without touching
-  application code.
+- **`src/lib/supabase/database.types.ts` continues to be a hand-maintained
+  subset.** PR 4 adds `statuses`, `applications`, `application_status_history`,
+  `application_contacts`, `application_resumes`. PR 6 will replace the file
+  with the output of `supabase gen types` after the migration set runs.
+- **`src/app/applications/actions.ts` now hosts nine Server Actions** (the
+  original `upsertCustomPlatform` from PR 2 + eight new ones). The file
+  stays a single `"use server"` file because the actions share the
+  `requireUser`/`redirectWithError`/`firstZodIssue` helpers and the file
+  path is the only thing the form components import from.
+- **No React state library added.** The new-application form is a small
+  client component that holds `platformUrl`, `selectedPlatform`, `urlError`,
+  and `showNameField` in local `useState`. Server-rendered list and detail
+  pages carry no state. Pulling in a state library for one form would
+  dwarf the slice.
+- **Combobox UX keeps the PR 2 free-text affordance.** Selecting the
+  custom option in the new-application form sets `showNameField = true`
+  so the platform name is editable. The server action then normalizes the
+  hostname and upserts on `(user_id, hostname)`.
+- **The `applications` schema has been added to the typed stub.** Foreign
+  key relations point at the real FK names (`platforms`,
+  `statuses`, `contacts`, `resumes`) so PR 6 can swap in generated types
+  without touching application code.
 
 ## Issues Found
 
-### I1 — `@supabase/ssr@0.5.2` imports `GenericSchema` from a path removed in newer `@supabase/supabase-js`
+### I4 — `next lint` is interactive and the project has no ESLint config
 
-`@supabase/ssr@0.5.2` was published against `@supabase/supabase-js@2.45.x`,
-where the type `GenericSchema` lived at
-`@supabase/supabase-js/dist/module/lib/types`. In newer
-`@supabase/supabase-js` releases (we resolved to 2.112.3 because the
-`package.json` range `^2.45.4` allowed it), that subpath was removed;
-`GenericSchema` now lives at the main entry point.
+`pnpm lint` calls `next lint`, which is deprecated in Next.js 15 and now
+prompts to configure ESLint. The project intentionally defers ESLint
+config to PR 6 (per the Phase 1 + 6 task list). For PR 4 verification we
+run `pnpm typecheck` and `pnpm build` only. No change in PR 4.
 
-The runtime behaviour of `@supabase/ssr` is unaffected — the broken import
-is type-only. But because `tsc` couldn't resolve `GenericSchema`, the
-`Schema extends GenericSchema` constraint in
-`createServerClient<Database, ...>` defaulted to `any`, which propagated
-into `PostgrestQueryBuilder` and turned `Relation$1['Insert']` into
-`never`. The visible symptom was that every typed
-`supabase.from('platforms').upsert({ ... })` and `.insert({ ... })` call
-failed typecheck with
-`Object literal may only specify known properties, and 'X' does not exist in type 'never[]'`.
+### I5 — `pnpm.overrides` warning continues from PR 1
 
-PR 1 did not exercise any typed table operation (only `.auth.signInWithOtp`),
-so the latent gap was invisible until PR 2 added the first one.
+The `pnpm` field in `package.json` is no longer read by pnpm 9; the
+declared `postcss` and `sharp` overrides are silently ignored. The
+installed versions still pass the security baseline (Next.js 15.5.21,
+postcss 8.5.26) so the warning is informational. A PR 6 housekeeping
+task should migrate the overrides to `pnpm-workspace.yaml` or remove
+them entirely.
 
-**Resolution**: upgrade `@supabase/ssr` to `0.12.4`, which imports
-`GenericSchema` from the main `@supabase/supabase-js` entry point.
-Captured in commit `07b080f`. After the upgrade,
-`pnpm typecheck` passes cleanly with the typed `platforms` table.
+### I6 — `serverActions` experiment flag still required
 
-**Lesson for the project**: pinned dependency ranges in `package.json`
-allow major-version drift that silently breaks downstream tooling. Either
-(a) tighten ranges to `~2.45.4` / `~0.5.2` for paired libraries, or
-(b) commit to a CI typecheck that exercises at least one typed table
-operation per PR. Both are PR 6 candidates (alongside ESLint + Vitest).
-
-### I2 — `pnpm-lock.yaml` change dominated by `@supabase/ssr` resolution, not new functionality
-
-The lockfile change for the ssr upgrade is ~10 net lines — small compared
-to PR 1's 3969-line lockfile bootstrap. Reviewers can `git show 07b080f --stat`
-separately and confirm the only material change is the ssr version bump.
-
-### I3 — Combobox has no integration test yet (deferred to PR 6)
-
-`inferPlatformFromUrl` and `normalizeHostname` are pure functions and are
-trivial to unit-test, but no test runner exists (`openspec/config.yaml`
-has `strict_tdd: false` and `rules.apply.test_command: ""`). PR 6 adds
-Vitest + a unit test matrix for these pure functions plus the
-`computeNextReminderAt` PR 5 function.
+`next.config.mjs` keeps the `experimental.serverActions.bodySizeLimit: "11mb"`
+override from PR 3 so multipart proposal uploads fit. The file is reused
+unchanged by PR 4.
 
 ## Workload / PR Boundary
 
@@ -234,48 +218,38 @@ Vitest + a unit test matrix for these pure functions plus the
 |-------|-------|
 | Delivery mode | feature-branch-chain (user-selected) |
 | Chain strategy | feature-branch-chain |
-| Current work unit | Platforms (PR 2 of 7) |
-| Branch | `feat/pr2-platforms` (work) → `feat/pr1-foundation` (previous child) → `feature/gestjobs-mvp` (tracker) |
-| PR 2 source diff | 4 new files + 1 modified (database.types.ts) + 1 dependency bump; +658 / -30 in source files, +12 / -18 in dep bump |
-| Lockfile delta | +12 / -18 (small — single dep bump, not a fresh lockfile) |
-| 400-line review budget impact | **Within budget.** PR 2's source diff (680 lines, +680/-36) is above the 400-line target when lockfile is included, but the source files alone (680 / 36) are dominated by the ARIA combobox (336 lines — the largest file because it's built from scratch in pure React). Reviewers can review by commit, not by file, per the `work-unit-commits` skill. |
-| Start state | `feat/pr1-foundation` (11 work-unit commits, runnable scaffold) |
-| Finish state | Runnable scaffold + accessible platform combobox + `upsertCustomPlatform` Server Action; `pnpm build` succeeds with the upgraded `@supabase/ssr` |
+| Current work unit | Applications + Status Workflow (PR 4 of 7) |
+| Branch | `feat/pr4-applications` (work) → `feature/gestjobs-mvp` (tracker) |
+| PR 4 source diff | 5 new files + 2 modified (`src/lib/supabase/database.types.ts`, `src/app/applications/actions.ts`); +2596 / -19 in source files |
+| 400-line review budget impact | **Over budget** (≈ 2,575 net lines). The user-selected `feature-branch-chain` strategy chose to keep PR 4 as one autonomous slice; the work-unit-comments pattern splits the diff into five reviewable commits so no single commit exceeds ≈ 750 lines. Each commit is reviewable on its own once the prior commits are merged. |
+| Start state | `feature/gestjobs-mvp` at `6cb13c1` (cumulative PR 1 + PR 2 + PR 3 + security reconciliation) |
+| Finish state | `feat/pr4-applications` carries authenticated CRUD + status workflow + attachments; `pnpm build` succeeds with 9 routes |
 | Verification | Static checks pass; runtime verification runbook deferred to PR 6 |
-| Rollback | `git revert` the merge of `feat/pr2-platforms` into `feat/pr1-foundation`. Combobox and Server Action are unused until PR 4 wires them into the application form, so reverting leaves PR 1 fully functional. No external resources to delete (no Vercel/Supabase projects exist yet). |
+| Rollback | `git revert` the merge of `feat/pr4-applications` into `feature/gestjobs-mvp`. PR 4 introduces no schema changes (the database.types.ts entry is a hand-maintained stub). Other modules remain deployable. |
 
 ## Discovery Save
 
 Project-level learnings saved to Engram under `project=gestjobs`:
-- `@supabase/ssr@0.5.2` ↔ `@supabase/supabase-js@2.45.x` import-path lock-in (see I1)
-- Pattern: pair `package.json` ranges with at least one typed table exercise in CI
-- PR 2 work-unit structure (pure-function → data → component → action → fix → docs)
+- `next lint` is interactive in Next.js 15 — defer to PR 6 with a fresh ESLint config (see I4)
+- `pnpm.overrides` field is no longer read by pnpm 9 — migrate to `pnpm-workspace.yaml` (see I5)
+- PR 4 work-unit structure (validation+types → actions → list+form → detail → docs) keeps each commit reviewable even when the PR exceeds the 400-line budget
+- Server Actions in the same `"use server"` file can share helpers but must export only async functions; types and zod schemas must live elsewhere
 
 ## Next Steps for Orchestrator
 
-1. Open PR 2 with base `feat/pr1-foundation`, head `feat/pr2-platforms`.
-   Title suggestion: `feat(platforms): add hostname inference + accessible combobox + custom platform persistence`.
-   Body should mention the `@supabase/ssr` upgrade commit (I1) so reviewers
-   don't get surprised by the package.json bump.
-2. After PR 1 merges into `feature/gestjobs-mvp` AND PR 2 merges into
-   `feat/pr1-foundation` (and the chain rebases through), the tracker
-   `feature/gestjobs-mvp` carries both slices.
-3. PR 3 (Contacts + Resumes) can land in parallel with PR 2 once PR 1 is
-   merged (independent base). The two child branches will both target
-   `feature/gestjobs-mvp`; whichever merges first updates the tracker
-   for the other.
-4. PR 4 (Applications) depends on PR 2 (the combobox + Server Action
-   it consumes) and PR 3 (resumes / contacts forms). Sequence:
-   merge PR 2 → rebase PR 3 onto updated PR 1 → merge PR 3 →
-   branch `feat/pr4-applications` off the updated tracker.
-5. PR 6 must add Vitest unit tests for `inferPlatformFromUrl` and
-   `normalizeHostname` (I3). The drift check between `src/lib/platforms/seed.ts`
-   and `supabase/seed.sql` should be the first test to land.
-
-## Tracker Reconciliation
-
-The Platforms slice was reconciled into `feature/gestjobs-mvp` after PR 2
-merged into the intermediate `feat/pr1-foundation` branch. The reconciliation
-commit preserves the Platforms source files and combines the temporary
-`platforms`, `contacts`, and `resumes` database table types. Contacts + Resumes
-remain represented by their implementation commits on the tracker branch.
+1. Push `feat/pr4-applications` when explicitly requested; do not open or merge yet.
+2. Open the PR against `feature/gestjobs-mvp` when requested. Title suggestion:
+   `feat(applications): add CRUD + status workflow + resume/contact attachments`.
+   Body should call out the 2,575-line scope (above the 400-line budget by
+   user-accepted `feature-branch-chain` strategy) and the static-vs-runtime
+   verification split.
+3. PR 5 (Reminders + Dashboard) depends on PR 4 (the `applications`,
+   `application_status_history`, `application_resumes` tables, and the
+   `set_updated_at` trigger). Sequence: merge PR 4 → branch
+   `feat/pr5-reminders-dashboard` off the updated tracker.
+4. PR 6 must add Vitest unit tests for `inferPlatformFromUrl`,
+   `normalizeHostname`, `computeNextReminderAt`, and the new Zod schemas;
+   add ESLint config (closes I4); migrate `pnpm.overrides` to
+   `pnpm-workspace.yaml` (closes I5); and replace the hand-maintained
+   `database.types.ts` with the generated output.
+5. Provision Supabase and run the deferred runtime matrix.

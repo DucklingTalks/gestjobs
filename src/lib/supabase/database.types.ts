@@ -6,7 +6,8 @@
 //
 // Until then, the typed Supabase clients in client.ts and server.ts pick up
 // per-table shapes incrementally. Application code that depends on table
-// shapes adds its table here when it lands (see PR 2 adding `platforms`).
+// shapes adds its table here when it lands (PR 2 added `platforms`, PR 3
+// added `contacts` and `resumes`, PR 4 adds the application tables).
 // PR 6 will replace this file with the output of `supabase gen types`.
 
 export type Json =
@@ -120,6 +121,198 @@ export interface Database {
         Insert: PlatformInsert;
         Update: PlatformUpdate;
         Relationships: [];
+      };
+      statuses: {
+        Row: {
+          id: string;
+          user_id: string;
+          name: string;
+          is_terminal: boolean;
+          sort_order: number;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          name: string;
+          is_terminal?: boolean;
+          sort_order?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["statuses"]["Insert"]>;
+        Relationships: [
+          {
+            foreignKeyName: "statuses_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      applications: {
+        Row: {
+          id: string;
+          user_id: string;
+          company_name: string;
+          position_title: string;
+          platform_id: string;
+          platform_url: string;
+          application_date: string;
+          status_id: string;
+          job_proposal_text: string | null;
+          job_proposal_url: string | null;
+          job_proposal_file_path: string | null;
+          next_reminder_at: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          company_name: string;
+          position_title: string;
+          platform_id: string;
+          platform_url: string;
+          application_date?: string;
+          status_id: string;
+          job_proposal_text?: string | null;
+          job_proposal_url?: string | null;
+          job_proposal_file_path?: string | null;
+          next_reminder_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["applications"]["Insert"]>;
+        Relationships: [
+          {
+            foreignKeyName: "applications_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "applications_platform_id_fkey";
+            columns: ["platform_id"];
+            isOneToOne: false;
+            referencedRelation: "platforms";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "applications_status_id_fkey";
+            columns: ["status_id"];
+            isOneToOne: false;
+            referencedRelation: "statuses";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      application_status_history: {
+        Row: {
+          id: string;
+          application_id: string;
+          from_status_id: string | null;
+          to_status_id: string;
+          changed_at: string;
+        };
+        Insert: {
+          id?: string;
+          application_id: string;
+          from_status_id?: string | null;
+          to_status_id: string;
+          changed_at?: string;
+        };
+        Update: Partial<
+          Database["public"]["Tables"]["application_status_history"]["Insert"]
+        >;
+        Relationships: [
+          {
+            foreignKeyName: "application_status_history_application_id_fkey";
+            columns: ["application_id"];
+            isOneToOne: false;
+            referencedRelation: "applications";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "application_status_history_from_status_id_fkey";
+            columns: ["from_status_id"];
+            isOneToOne: false;
+            referencedRelation: "statuses";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "application_status_history_to_status_id_fkey";
+            columns: ["to_status_id"];
+            isOneToOne: false;
+            referencedRelation: "statuses";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      application_contacts: {
+        Row: {
+          application_id: string;
+          contact_id: string;
+          role: string;
+        };
+        Insert: {
+          application_id: string;
+          contact_id: string;
+          role: string;
+        };
+        Update: Partial<
+          Database["public"]["Tables"]["application_contacts"]["Insert"]
+        >;
+        Relationships: [
+          {
+            foreignKeyName: "application_contacts_application_id_fkey";
+            columns: ["application_id"];
+            isOneToOne: false;
+            referencedRelation: "applications";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "application_contacts_contact_id_fkey";
+            columns: ["contact_id"];
+            isOneToOne: false;
+            referencedRelation: "contacts";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      application_resumes: {
+        Row: {
+          application_id: string;
+          resume_id: string;
+          attached_at: string;
+        };
+        Insert: {
+          application_id: string;
+          resume_id: string;
+          attached_at?: string;
+        };
+        Update: Partial<
+          Database["public"]["Tables"]["application_resumes"]["Insert"]
+        >;
+        Relationships: [
+          {
+            foreignKeyName: "application_resumes_application_id_fkey";
+            columns: ["application_id"];
+            isOneToOne: true;
+            referencedRelation: "applications";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "application_resumes_resume_id_fkey";
+            columns: ["resume_id"];
+            isOneToOne: false;
+            referencedRelation: "resumes";
+            referencedColumns: ["id"];
+          },
+        ];
       };
     };
     Views: Record<string, never>;

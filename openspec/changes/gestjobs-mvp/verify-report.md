@@ -599,3 +599,23 @@ types now include `platforms`, `contacts`, and `resumes`, including their
 owner foreign-key relationship metadata. Static checks remain green; live
 Supabase CRUD, Storage, signed-URL, and RLS checks remain deferred until the
 project is provisioned.
+
+---
+
+## Phase 4 — Applications Verification
+
+Phase 4 tasks 4.1–4.9 are implemented on `feat/pr4-applications` and pass the
+available Standard Mode checks:
+
+- `pnpm install --frozen-lockfile` — passed.
+- `pnpm audit --prod` — no known vulnerabilities found.
+- `pnpm typecheck` — passed with zero errors.
+- `pnpm build` — passed with nine routes, including applications list, detail,
+  and new-application pages.
+- Conflict-marker scan — no unresolved merge markers.
+
+Static review covers application validation, URL-first platform integration,
+proposal text/URL/file handling, authenticated CRUD, status history actions,
+resume/contact attachment actions, and rollback boundaries. Runtime Supabase
+CRUD, RLS, storage lifecycle, signed URLs, and status-history persistence remain
+deferred until a Supabase project is provisioned.
