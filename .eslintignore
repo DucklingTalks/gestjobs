@@ -1,0 +1,12 @@
+# ESLint ignore file (legacy mode for ESLint 9 via `next lint`).
+node_modules/
+.next/
+out/
+build/
+coverage/
+tests/coverage/
+*.min.js
+*.tsbuildinfo
+next-env.d.ts
+src/lib/supabase/database.types.ts
+vercel.json
