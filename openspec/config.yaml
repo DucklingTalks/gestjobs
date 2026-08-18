@@ -5,29 +5,41 @@ schema: spec-driven
 context: |
   Project: gestjobs
   Working directory: C:\Users\jlima\Documents\Proyects\gestjobs
-  Stack: not yet detected (empty project skeleton — only .atl/ present, no source or manifest files)
-  Architecture: not yet defined
-  Testing: not yet established (no test runner, no manifest)
-  Style: not yet established
+  Stack: Next.js 15 (App Router) + TypeScript 5 + Tailwind 3; Supabase
+         (Postgres + Auth + Storage) for backend; Resend for email;
+         pnpm 9 + Vitest 2 + ESLint 9 for tooling
+  Architecture: App Router Server Components + Server Actions; magic-link
+                auth; per-tenant RLS via `is_owner(user_id)`; cron route
+                protected with `CRON_SECRET` Bearer header; idempotent
+                Resend email dispatch
+  Testing: Vitest 2 unit tests (63 scenarios across platforms / reminders /
+           validation); `pnpm test` + `pnpm test:coverage`; no integration
+           or E2E layer provisioned (deferred until Supabase is wired);
+           runtime smoke checklist in docs/smoke-tests.md
+  Style: TypeScript strict mode; Tailwind utility classes; Server Components
+         default, Client Components only when interactivity is required
   Artifact store: openspec
   Execution mode: interactive
   Delivery strategy: ask-always
   Review budget lines: 400
+  Chain strategy: feature-branch-chain
 
-# Strict TDD is disabled because no test runner has been provisioned yet.
-# sdd-apply will assert tests fail-then-pass only when this flag is true and a
-# test command is configured under rules.apply.test_command.
+# Strict TDD is currently disabled — Phase 6 added a Vitest runner
+# but the project follows Standard Mode (write code, lock the contract
+# with unit tests, never enforce RED-GREEN-REFACTOR order at the
+# phase level). Flip `strict_tdd: true` once every PR runs through
+# TDD discipline explicitly.
 strict_tdd: false
 
 testing:
   runner:
-    available: false
-    command: ""
-    framework: ""
+    available: true
+    command: "pnpm test"
+    framework: "vitest@2"
   layers:
     unit:
-      available: false
-      tool: ""
+      available: true
+      tool: "vitest"
     integration:
       available: false
       tool: ""
@@ -35,15 +47,16 @@ testing:
       available: false
       tool: ""
   coverage:
-    available: false
-    command: ""
+    available: true
+    command: "pnpm test:coverage"
+    provider: "v8"
   quality:
     linter:
-      available: false
-      command: ""
+      available: true
+      command: "pnpm lint"
     type_checker:
-      available: false
-      command: ""
+      available: true
+      command: "pnpm typecheck"
     formatter:
       available: false
       command: ""
@@ -67,13 +80,14 @@ rules:
     - Mark dependencies between tasks
   apply:
     - Follow existing code patterns once the stack is chosen
-    - Update this file with tdd/test_command as soon as a runner is provisioned
+    - Add a Vitest unit test next to any pure helper introduced in the slice
+    - Add `pnpm lint` fixes as separate fix() commits so CI is green
     tdd: false
-    test_command: ""
+    test_command: "pnpm test"
   verify:
-    test_command: ""
-    build_command: ""
-    coverage_threshold: 0
+    test_command: "pnpm test"
+    build_command: "pnpm build"
+    coverage_threshold: 70
   archive:
     - Warn before merging destructive deltas (REMOVED, RENAMED)
     - Preserve audit trail under openspec/changes/archive/YYYY-MM-DD-{name}/
