@@ -7,7 +7,8 @@
 // Until then, the typed Supabase clients in client.ts and server.ts pick up
 // per-table shapes incrementally. Application code that depends on table
 // shapes adds its table here when it lands (PR 2 added `platforms`, PR 3
-// added `contacts` and `resumes`, PR 4 adds the application tables).
+// added `contacts` and `resumes`, PR 4 added the application tables,
+// PR 5 adds `reminder_dispatches`).
 // PR 6 will replace this file with the output of `supabase gen types`.
 
 export type Json =
@@ -310,6 +311,34 @@ export interface Database {
             columns: ["resume_id"];
             isOneToOne: false;
             referencedRelation: "resumes";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      reminder_dispatches: {
+        Row: {
+          id: string;
+          application_id: string;
+          sent_at: string;
+          provider_message_id: string | null;
+          error: string | null;
+        };
+        Insert: {
+          id?: string;
+          application_id: string;
+          sent_at?: string;
+          provider_message_id?: string | null;
+          error?: string | null;
+        };
+        Update: Partial<
+          Database["public"]["Tables"]["reminder_dispatches"]["Insert"]
+        >;
+        Relationships: [
+          {
+            foreignKeyName: "reminder_dispatches_application_id_fkey";
+            columns: ["application_id"];
+            isOneToOne: false;
+            referencedRelation: "applications";
             referencedColumns: ["id"];
           },
         ];
