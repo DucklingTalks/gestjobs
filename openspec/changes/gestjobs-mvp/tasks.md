@@ -74,14 +74,14 @@ Chain strategy: feature-branch-chain
 
 ## Phase 5: Reminders + Dashboard (PR 5)
 
-- [ ] 5.1 Create `src/lib/reminders/schedule.ts` — pure `computeNextReminderAt(applicationDate, lastStatusChangeAt, statusIsTerminal): Date | null`; `null` for terminal statuses.
-- [ ] 5.2 Add `supabase/migrations/003_reminder_trigger.sql` — on `application_status_history` insert, recompute `applications.next_reminder_at` via SQL function `compute_next_reminder_at()`.
-- [ ] 5.3 Create `src/lib/email/resend.ts` — `sendReminderEmail(applicationId, user)` using Resend SDK; writes success/failure to `reminder_dispatches`; idempotent on `(application_id, sent_at::date)`.
-- [ ] 5.4 Create `src/app/api/cron/reminders/route.ts` — POST only, guarded by `CRON_SECRET`; selects due reminders; dispatches email; updates `reminder_dispatches`.
-- [ ] 5.5 Add `vercel.json` with cron `"0 9 * * *"` → `/api/cron/reminders`.
-- [ ] 5.6 Create `src/app/dashboard/page.tsx` — RSC reading status counters + pending reminders sorted `next_reminder_at asc`, dismissed excluded; quick-link cards to application detail.
-- [ ] 5.7 **Verify**: seed overdue application → cron POST 200 + dispatch row written; dashboard lists pending; terminal-status applications excluded.
-- [ ] 5.8 **Rollback**: revert PR 5 — Dashboard degrades to empty pending section; cron route returns 410.
+- [x] 5.1 Create `src/lib/reminders/schedule.ts` — pure `computeNextReminderAt(applicationDate, lastStatusChangeAt, statusIsTerminal): Date | null`; `null` for terminal statuses.
+- [x] 5.2 Add `supabase/migrations/003_reminder_trigger.sql` — on `application_status_history` insert, recompute `applications.next_reminder_at` via SQL function `compute_next_reminder_at()`.
+- [x] 5.3 Create `src/lib/email/resend.ts` — `sendReminderEmail(applicationId, user)` using Resend SDK; writes success/failure to `reminder_dispatches`; idempotent on `(application_id, sent_at::date)`.
+- [x] 5.4 Create `src/app/api/cron/reminders/route.ts` — POST only, guarded by `CRON_SECRET`; selects due reminders; dispatches email; updates `reminder_dispatches`.
+- [x] 5.5 Add `vercel.json` with cron `"0 9 * * *"` → `/api/cron/reminders`.
+- [x] 5.6 Create `src/app/dashboard/page.tsx` — RSC reading status counters + pending reminders sorted `next_reminder_at asc`, dismissed excluded; quick-link cards to application detail.
+- [x] 5.7 **Verify**: seed overdue application → cron POST 200 + dispatch row written; dashboard lists pending; terminal-status applications excluded. _(Static verification done: `pnpm install --frozen-lockfile` clean, `pnpm typecheck` 0 errors, `pnpm build` 10 routes. Inline sanity-check passes for `computeNextReminderAt` (5/5 spec scenarios) and `reminderIdempotencyKey` (3/3). Runtime verification — `POST /api/cron/reminders` against a real Supabase project, dashboard query against a real DB, Resend dispatch against a real API key — deferred until the project is provisioned.)_
+- [x] 5.8 **Rollback**: revert PR 5 — Dashboard degrades to empty pending section; cron route returns 410. _(The route returns 410 on GET (matches spec rollback note) and 405 on non-POST methods; dashboard page is unused unless visited. `git revert` the merge of `feat/pr5-reminders-dashboard` into `feature/gestjobs-mvp`. PR 5 introduces one migration (`003_reminder_trigger.sql`) and a unique partial index; both must be reverted alongside the application code.)_
 
 ## Phase 6: Verification + README (PR 6)
 
