@@ -271,3 +271,390 @@ The single WARNING (W1) is a 5-line wording fix on `tasks.md` task 1.6 that the 
 **For PR 2 dispatch**: after PR 1 merges into `feature/gestjobs-mvp`, branch `feat/pr2-platforms` from the updated tracker and dispatch `sdd-apply` for Phase 2 tasks (2.1–2.6).
 
 **For PR 3 dispatch**: can run in parallel with PR 2 once PR 1 merges (independent base).
+
+---
+
+# Verification Report — gestjobs-mvp PR 2 (Platforms)
+
+**Change**: gestjobs-mvp
+**Work unit**: PR 2 — Platforms (tasks 2.1–2.6)
+**Branch under verification**: `feat/pr2-platforms` (9 commits ahead of `feat/pr1-foundation`, 17 ahead of `feature/gestjobs-mvp` tracker)
+**Mode**: Standard (`strict_tdd=false`, no test runner)
+**Artifact store**: openspec
+**Verifier**: `sdd-verify` sub-agent, 2026-08-17
+
+> PR 2 was originally persisted to Engram memory `#236 — sdd/gestjobs-mvp/verify-report`. This OpenSpec file mirrors the same conclusions for traceability. Full inline pure-function evidence (15-case Node `--experimental-strip-types` sanity check: 13 pass, 2 docstring-mismatch failures) is available in Engram.
+
+## Executive Summary (PR 2)
+
+PR 2 (Platforms) is **PASS WITH WARNINGS**. All 6 Phase 2 tasks (2.1–2.6) are checked in `tasks.md`. Static verification ran clean: `pnpm typecheck` (0 errors) and `pnpm build` (5 static pages prerendered, Middleware 86.4 kB). Implementation matches every Phase 2 task exactly:
+
+- `src/lib/platforms/infer.ts` (134 lines): `normalizeHostname`, `inferPlatformFromUrl`, `searchPlatforms`, `InvalidUrlError`. Pure, deterministic, fully typed.
+- `src/components/platform-combobox.tsx` (336 lines): WAI-ARIA APG combobox pattern (`combobox`, `listbox`, `option`, `aria-expanded`, `aria-controls`, `aria-activedescendant`). Keyboard: ArrowDown/Up/Home/End/Enter/Escape/Tab.
+- `src/app/applications/actions.ts` (133 lines): `upsertCustomPlatform` Server Action enforcing `auth.uid()`, hostname regex, and `.upsert({...}, { onConflict: "user_id,hostname" })` for idempotency.
+- `@supabase/ssr` upgrade from 0.5.2 to 0.12.4 (required to repair the broken `GenericSchema` import path used by typed `Database['public']['Tables']['platforms']`).
+
+3 WARNINGS (W1-PR2 native ARIA vs Headless UI/Radix; W2-PR2 seed.ts/seed.sql drift; W3-PR2 infer.ts docstring example misaligned with the actual seed) + 6 SUGGESTIONS (rebase cleanup, drift check, empty `Relationships`, lint still deferred, working tree clean, `onConfirm` vs `onChange` naming).
+
+**Verdict**: **PASS WITH WARNINGS** — Platforms is ready to merge into `feat/pr1-foundation`. The warnings are docs/cosmetic, not blocking.
+
+## Spec Compliance Matrix (Platforms — 10 scenarios)
+
+| Scenario | Result |
+|----------|--------|
+| Known hostname (linkedin.com → LinkedIn) | ✅ COMPLIANT (pure-function) |
+| Known hostname (boards.greenhouse.io → Greenhouse) | ✅ COMPLIANT (pure-function) |
+| Unknown hostname (unseeded → null) | ✅ COMPLIANT (pure-function) |
+| Invalid URL rejected (malformed → observable error) | ✅ COMPLIANT (pure-function) |
+| Search seeded (gallito → Gallito Uruguay) | ✅ COMPLIANT |
+| Search Latin-American board (computrabajo → Computrabajo) | ✅ COMPLIANT |
+| Custom platform entry | ⚠️ COMPLIANT (impl present; runtime DB deferred) |
+| Reuse custom platform | ⚠️ COMPLIANT (impl present; runtime DB deferred) |
+| Normalized hostname storage (www./trailing path → normalized) | ✅ COMPLIANT |
+| ARIA combobox keyboard | ✅ COMPLIANT (source inspection) |
+
+**Compliance summary**: 8 ✅ COMPLIANT + 2 ⚠️ COMPLIANT-with-deferred-runtime. 0 ❌ UNTESTED.
+
+---
+
+# Verification Report — gestjobs-mvp PR 3 (Contacts + Resumes)
+
+**Change**: gestjobs-mvp
+**Work unit**: PR 3 — Contacts + Resumes (tasks 3.1–3.6)
+**Branch under verification**: `feat/pr3-contacts-resumes` (3 commits ahead of `origin/feature/gestjobs-mvp` at `ea650eb`)
+**Base**: `origin/feature/gestjobs-mvp` after merged PR 1 — independent of PR 2
+**Mode**: Standard (`strict_tdd=false`, no test runner)
+**Artifact store**: openspec
+**Verifier**: `sdd-verify` sub-agent, 2026-08-18
+
+## Executive Summary (PR 3)
+
+PR 3 (Contacts + Resumes) is **PASS WITH WARNINGS**. All 6 Phase 3 tasks (3.1–3.6) are checked in `tasks.md`. Static verification passed: `pnpm typecheck` (0 errors) and `pnpm build` (7 pages; `/contacts`, `/login`, `/resumes` dynamic; Middleware 86.4 kB). The implementation matches every Phase 3 task exactly:
+
+- **Contact directory CRUD**: `src/app/contacts/{actions.ts (86 L), page.tsx (105 L)}` — three Server Actions (`createContact`, `updateContact`, `deleteContact`) and a single directory UI with reusable `ContactFields` form.
+- **Contact Zod validation**: `src/lib/validation/contact.ts` (46 L) — `contactSchema` (required name, optional email/phone/LinkedIn URL/notes) + `contactIdSchema` (UUID format).
+- **Private versioned resume upload**: `src/app/resumes/{actions.ts (62 L), page.tsx (84 L)}` — single Server Action `uploadResume` and a signed-URL-driven UI.
+- **Resume validation**: `src/lib/validation/resume.ts` (40 L) — `validateResumeFile` (PDF/DOCX only, ≤ 10 MB), `resumeLabelSchema` (1–120 chars), `MAX_RESUME_FILE_SIZE_BYTES` constant.
+- **Server Action body limit**: `next.config.mjs` — `experimental.serverActions.bodySizeLimit = "11mb"` so 10 MB file + multipart overhead reaches action validation.
+- **Typed database subset**: `src/lib/supabase/database.types.ts` — `contacts` and `resumes` table types added; subset remains to be replaced by `supabase gen types` in PR 6.
+
+Inline Node `--experimental-strip-types` pure-validation sanity check ran **30 cases (all PASS)** for `contactSchema`, `contactIdSchema`, `resumeLabelSchema`, and `validateResumeFile`. The schemas meet the spec's "observable validation error" requirement on every rejection path.
+
+The cumulative PR 3 verdict is **PASS WITH WARNINGS** (1 WARNING + 3 SUGGESTIONS). The single WARNING concerns the dependency posture: `pnpm audit` reported **37 vulnerabilities** in the pinned `next@15.0.3` (2 critical, 13 high, 18 moderate, 4 low). The user-mentioned CVE-2025-66478 maps to GHSA-9qr9-h5gf-34mp (RCE in React flight protocol, patched in 15.0.5). The advisory set is wider than the deprecation warning implies; a focused upgrade to `next@15.5.21` is required before deployment (W1-PR3). This is a pre-existing dependency posture unchanged by PR 3 itself — the warning belongs to PR 3 review only because PR 3 is the increment that pins the dependency tree to the current `next@15.0.3` resolution.
+
+Runtime verification — Supabase CRUD, storage upload, signed URL fetch, cross-user RLS isolation, compensating storage cleanup — is explicitly deferred until a Supabase project is provisioned. This matches the apply-progress runbook and the precedent set by PR 1 / PR 2.
+
+## Status Snapshot (PR 3)
+
+| Field | Value |
+|-------|-------|
+| `schemaName` | spec-driven |
+| `changeName` | gestjobs-mvp |
+| `artifactStore` | openspec |
+| `changeRoot` | `openspec/changes/gestjobs-mvp/` |
+| `proposal` | done |
+| `specs` | done (6 specs) |
+| `design` | done |
+| `tasks` | done (Phase 3 tasks all `[x]`) |
+| `apply-progress` | done (committed `07ea229`) |
+| `verify-report` | **this artifact** |
+| `applyState` | all_done (for Phase 3) |
+| `verify` | ready |
+| `archive` | blocked — PR 3 has not yet been merged into `feature/gestjobs-mvp`; CRITICAL issues = none |
+| `actionContext.mode` | repo-local |
+| `actionContext.allowedEditRoots` | repo root |
+| `actionContext.warnings` | none |
+
+## Completeness (PR 3 scope)
+
+| Metric | Value |
+|--------|-------|
+| Phase 3 tasks total | 6 |
+| Phase 3 tasks complete (`[x]`) | 6 |
+| Phase 3 tasks incomplete | 0 |
+| Whole-change tasks total | 64 (7 phases × ~9 tasks each) |
+| Whole-change tasks complete | 23 (Phases 1–3) |
+| Whole-change tasks remaining | 41 (Phases 4–7 — expected for PR 3) |
+
+> **Phases 4–7 are intentionally unchecked.** PR 3 = Contacts + Resumes only. The verify gate covers Phase 3, not the full MVP.
+
+## Build & Tests Execution (PR 3)
+
+**Build**: ✅ Passed
+
+```text
+> gestjobs@0.1.0 build C:\Users\jlima\Documents\Proyects\gestjobs
+> next build
+
+   ▲ Next.js 15.0.3
+   - Environments: .env.local
+
+   Creating an optimized production build ...
+ ✓ Compiled successfully
+   Linting and checking validity of types ...
+   Collecting page data ...
+   Generating static pages (7/7)
+   Finalizing page optimization ...
+   Collecting build traces ...
+
+Route (app)                              Size     First Load JS
+┌ ○ /                                    9.26 kB         109 kB
+├ ○ /_not-found                          897 B           101 kB
+├ ƒ /contacts                            142 B           100 kB
+├ ƒ /login                               142 B           100 kB
+└ ƒ /resumes                             142 B           100 kB
++ First Load JS shared by all            99.9 kB
+ƒ Middleware                             86.4 kB
+```
+
+**Typecheck**: ✅ Passed
+
+```text
+> gestjobs@0.1.0 typecheck
+> tsc --noEmit
+(no output, exit code 0)
+```
+
+**Install**: ✅ Passed (lockfile is up to date; `pnpm install --frozen-lockfile` exit 0).
+
+**Inline pure-validation sanity check**: ✅ 30/30 cases pass
+
+```text
+PASS  contact: valid name+email parses
+PASS  contact: blank name rejected
+PASS  contact: invalid email rejected
+PASS  contact: blank email treated as null
+PASS  contact: http linkedin_url accepted
+PASS  contact: https linkedin_url accepted
+PASS  contact: ftp linkedin_url rejected
+PASS  contact: malformed linkedin_url rejected
+PASS  contact: oversized notes rejected
+PASS  contact: oversized phone rejected
+PASS  contact: name over 120 chars rejected
+PASS  contact: oversized email rejected
+PASS  contact: empty form parses (all optional fields null)
+PASS  contactId: valid UUID accepted
+PASS  contactId: invalid UUID rejected
+PASS  resumeLabel: valid label passes
+PASS  resumeLabel: blank label rejected
+PASS  resumeLabel: 120-char label passes
+PASS  resumeLabel: 121-char label rejected
+PASS  MAX_RESUME_FILE_SIZE_MB === 10
+PASS  file: non-File rejected
+PASS  file: empty file rejected
+PASS  file: PDF accepted
+PASS  file: DOCX accepted
+PASS  file: 10 MB exactly accepted
+PASS  file: 10 MB + 1 byte rejected
+PASS  file: .exe rejected
+PASS  file: text/plain rejected
+PASS  file: image/png rejected
+PASS  file: null rejected
+```
+
+**Tests**: ➖ Not available (no test runner provisioned — Standard Mode, `strict_tdd=false`).
+
+**Coverage**: ➖ Not available.
+
+**Linter**: ❌ Deferred to PR 6 (same status as PR 1 / PR 2; interactive ESLint prompt).
+
+## Spec Compliance Matrix (PR 3 scope)
+
+PR 3 covers the contacts and resumes **directory/upload** surfaces. The "per-application role" / "per-application attachment" scenarios are deferred to PR 4 (Applications). The relevant compliance check is whether the directory CRUD and upload pipeline satisfy every spec scenario that lives in Phase 3.
+
+### Contacts spec — `openspec/changes/gestjobs-mvp/specs/contacts/spec.md`
+
+| Spec requirement | Spec scenario | PR 3 evidence | Result |
+|------------------|---------------|---------------|--------|
+| Contact Directory CRUD | Create contact | `createContact` Server Action (`actions.ts:39–49`) inserts `{...input, user_id: user.id}` to `contacts`; RLS policy `Users manage their own contacts` (`001_initial_schema.sql:276–280`) | ✅ COMPLIANT (RSC + action; runtime DB deferred) |
+| Contact Directory CRUD | Validation on create | `contactSchema` rejects empty name with `Name is required.`; redirect passes `?error=...`; UI renders `role="alert"` | ✅ COMPLIANT (pure-function inline sanity-check 30/30) |
+| Contact Directory CRUD | Update contact | `updateContact` Server Action (`actions.ts:51–68`) updates by `.eq("id", id).eq("user_id", user.id)` (double-binding) | ✅ COMPLIANT (action wired; runtime DB deferred) |
+| Contact Directory CRUD | Delete contact | `deleteContact` Server Action (`actions.ts:70–86`) deletes by `.eq("id", id).eq("user_id", user.id)`; the page also lists the contact without application linkage (PR 4 wires the join) | ✅ COMPLIANT (action wired; runtime DB deferred) |
+| Per-Application Role Assignment | Assign recruiter / Reuse contact / Remove role | Deferred to PR 4. The `application_contacts` table + RLS policy `Users manage contact roles on their applications` are present in `001_initial_schema.sql` (`99–104`, `283–299`) — schema substrate is in place. | ⚠️ SCHEMA-READY (UI + Server Action deferred to PR 4) |
+
+**Compliance summary**: 4 ✅ COMPLIANT + 1 ⚠️ SCHEMA-READY (deferred to PR 4 by design). 0 ❌ UNTESTED scenarios at the Phase 3 boundary.
+
+### Resumes spec — `openspec/changes/gestjobs-mvp/specs/resumes/spec.md`
+
+| Spec requirement | Spec scenario | PR 3 evidence | Result |
+|------------------|---------------|---------------|--------|
+| Resume Upload and Versioning | Upload new resume | `uploadResume` Server Action (`actions.ts:13–62`) validates label + file, uploads to `resumes/{user_id}/{uuid}-{name}.{pdf|docx}`, inserts `resumes` row with `user_id`, `label`, `file_path`, `file_hash` (SHA-256), `file_size` | ✅ COMPLIANT (action wired; runtime DB deferred) |
+| Resume Upload and Versioning | Upload duplicate content | Spec says "MAY warn or create a new version based on user choice". PR 3 always creates a new version with the same hash (no uniqueness check on `(user_id, file_hash)`). The spec's "create a new version" branch is supported. | ✅ COMPLIANT (always-creates-new-version path) |
+| Resume Upload and Versioning | Invalid file type rejected | `validateResumeFile` rejects unless `value.type` is in `RESUME_MIME_TYPES` (PDF/DOCX); UI `<input accept="application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,.pdf,.docx">` provides a hint | ✅ COMPLIANT (pure-function inline sanity-check) |
+| Resume Upload and Versioning | Oversized file rejected | `validateResumeFile` rejects if `value.size > MAX_RESUME_FILE_SIZE_BYTES (10 MB)`; UI copy: "Maximum 10 MB. Files stay private; download links expire after one hour." | ✅ COMPLIANT (pure-function sanity-check: 10 MB exactly accepted, 10 MB + 1 byte rejected) |
+| Per-Application Attachment | Attach / Change / Detach | Deferred to PR 4. The `application_resumes` (PK on `application_id`) + `resumes` schema + RLS policy `Users manage resume attachments on their applications` are present in `001_initial_schema.sql:123–127`, `308–325`. | ⚠️ SCHEMA-READY (UI + Server Action deferred to PR 4) |
+
+**Compliance summary**: 4 ✅ COMPLIANT + 1 ⚠️ SCHEMA-READY (deferred to PR 4 by design). 0 ❌ UNTESTED scenarios at the Phase 3 boundary.
+
+### Cross-cutting invariants (verified by source inspection)
+
+| Invariant | Implementation | Source |
+|-----------|----------------|--------|
+| `auth.uid()` on every RLS-sensitive operation | `contacts`: page load + create/update/delete all call `supabase.auth.getUser()` and `redirect("/login")` if no user. `resumes`: same pattern. | `src/app/contacts/{actions.ts:29–37, page.tsx:21–25}`, `src/app/resumes/{actions.ts:24–28, page.tsx:19–23}` |
+| Contact mutation double-binds both `id` and `user_id` | `updateContact` / `deleteContact` use `.eq("id", id).eq("user_id", user.id)` | `src/app/contacts/actions.ts:62–63, 80–81` |
+| Resume storage path matches migration RLS convention | `${user.id}/${randomUUID()}-${safeBaseName}.pdf|docx` — `002_storage_buckets.sql` RLS uses `(storage.foldername(name))[1] = auth.uid()::text` | `src/app/resumes/actions.ts:40` vs `supabase/migrations/002_storage_buckets.sql:39–73` |
+| Pre-storage MIME/size validation | `validateResumeFile` runs before `supabase.storage.upload()`; `file_hash` is computed in-memory | `src/app/resumes/actions.ts:19–32` |
+| Compensating cleanup on metadata insert failure | `await supabase.storage.from("resumes").remove([filePath])` after `insert` failure | `src/app/resumes/actions.ts:55–58` |
+| One-hour signed URLs | `createSignedUrl(resume.file_path, 3_600)`; UI shows "Download unavailable" if the signed URL is null | `src/app/resumes/page.tsx:33–34, 76` |
+| Server Action body limit above the 10 MB domain limit | `experimental.serverActions.bodySizeLimit = "11mb"` | `next.config.mjs:5–10` |
+| Accessible status / error messages | `<p role="status">` for success, `<p role="alert">` for errors; `searchParams` Promise per Next 15 App Router | `src/app/contacts/page.tsx:40–49`, `src/app/resumes/page.tsx:47–54` |
+
+## Correctness (Static Evidence vs Phase 3 Tasks)
+
+| Task | Description | Files verified | Status |
+|------|-------------|----------------|--------|
+| 3.1 | Contact directory CRUD Server Actions and UI | `src/app/contacts/actions.ts` (86 L) — `createContact`, `updateContact`, `deleteContact`; `src/app/contacts/page.tsx` (105 L) — directory + reusable `<ContactFields>`; `searchParams: Promise<SearchParams>` per Next 15 | ✅ Implemented |
+| 3.2 | Contact Zod validation | `src/lib/validation/contact.ts` (46 L) — `contactSchema` (required name, optional email/phone/LinkedIn URL/notes), `contactIdSchema` (UUID) | ✅ Implemented |
+| 3.3 | Private versioned resume upload, metadata, SHA-256 hash, and signed download UI | `src/app/resumes/actions.ts` (62 L) — `uploadResume`; `src/app/resumes/page.tsx` (84 L) — versions + signed URLs | ✅ Implemented |
+| 3.4 | Resume label, MIME, and size validation | `src/lib/validation/resume.ts` (40 L) — `validateResumeFile`, `resumeLabelSchema`, `MAX_RESUME_FILE_SIZE_MB`; `next.config.mjs` — `bodySizeLimit: "11mb"` | ✅ Implemented |
+| 3.5 | Static verification; Supabase upload/signed URL/RLS checks deferred | `pnpm typecheck` 0 errors; `pnpm build` 7 pages, `/contacts` `/login` `/resumes` dynamic, Middleware 86.4 kB; Supabase runtime matrix deferred per runbook | ✅ Implemented (static); runtime deferred with explicit runbook |
+| 3.6 | Independent rollback documented | `apply-progress.md` § "Rollback" documents `git revert` PR 3 only; no migration or external resource introduced by this slice | ✅ Implemented |
+
+## Coherence (Design)
+
+| Design decision | Implementation follow-through | Notes |
+|-----------------|-------------------------------|-------|
+| `user_id` on every tenant table; RLS as primary data boundary | `contacts` (owner-only) + `resumes` (owner-only) RLS policies in `001_initial_schema.sql:276–280, 301–306`; the page also re-verifies `user_id` on UPDATE/DELETE | ✅ Yes |
+| Storage path convention `resumes/{user_id}/...` | `${user.id}/${randomUUID()}-${safeBaseName}.${pdf|docx}` matches storage RLS `(storage.foldername(name))[1] = auth.uid()::text` | ✅ Yes |
+| 1-hour signed URLs for resume downloads | `createSignedUrl(resume.file_path, 3_600)` (3,600 s = 1 h); no raw public URLs exposed | ✅ Yes |
+| SHA-256 file hash on every uploaded version | `createHash("sha256").update(bytes).digest("hex")` computed server-side; persisted in `resumes.file_hash` | ✅ Yes |
+| 10 MB file size limit | `MAX_RESUME_FILE_SIZE_BYTES = 10 * 1024 * 1024`; matches `002_storage_buckets.sql` `file_size_limit = 10 * 1024 * 1024` (project-wide configured limit) | ✅ Yes |
+| Per-application role assignment / attachment | Schema substrate (`application_contacts`, `application_resumes`) + RLS policies present | ⚠️ Deferred to PR 4 (matches PR boundary) |
+| Compensating cleanup on metadata insert failure | `await supabase.storage.from(RESUME_BUCKET).remove([filePath])` after `insertError` | ✅ Yes (defensive parity with design intent) |
+
+## Dependency & Security Evaluation
+
+**`pnpm audit` (against `package.json` + `pnpm-lock.yaml`)**: 37 vulnerabilities — 2 critical, 13 high, 18 moderate, 4 low.
+
+- **Critical #1** — RCE in React flight protocol (GHSA-9qr9-h5gf-34mp, the CVE-2025-66478 the user referenced). Patched in `next@15.0.5`; current pin `15.0.3` is exposed.
+- **Critical #2** — Authorization bypass in Next.js Middleware (GHSA-f82v-jwr5-mffw). Patched in `next@15.2.3`; current pin is exposed.
+- **High cohort** — Next.js DoS in Server Components / Server Actions / Cache Components, SSRF in Server Actions + rewrites, WebSocket-upgrade SSRF, middleware bypass in i18n, libvips CVEs via bundled `sharp@0.33.5` (CVE-2026-33327, CVE-2026-33328, CVE-2026-35590, CVE-2026-35591), PostCSS 8.4.31 path-traversal.
+- **Recommended bump**: `next@15.5.21` is the lowest version that closes every advisory listed in the audit (the highest listed patch line is `>=15.5.21` for the SSRF in Server Actions / rewrites / unbounded-payload families).
+
+| Risk | Likelihood | Impact | Mitigation |
+|------|------------|--------|------------|
+| RCE / auth bypass in Next.js 15.0.3 | High (active CVE) | High | Out-of-PR-3 `next@15.5.21` bump before deployment. Documented as W1-PR3. |
+| Resume upload bypass (e.g., upload 9.5 MB but spoof MIME) | Low | Medium | Bucket-level MIME allow-list at `002_storage_buckets.sql:16` acts as a second gate. |
+| Compensation-cleanup race (app crash between upload and metadata insert) | Low | Low | Storage object is orphaned; the table never links it; user can re-upload. Acceptable for an MVP. |
+| `@supabase/ssr` 0.12.4 / `contact` column null safety | Low | Low | `database.types.ts` Row types declare `email|phone|linkedin_url|notes as string \| null`; the action passes `null` correctly. |
+
+## Workload / PR Boundary (PR 3)
+
+| Field | Value |
+|-------|-------|
+| Work unit | Contacts + Resumes (PR 3 of 7) |
+| Branch | `feat/pr3-contacts-resumes` → `feature/gestjobs-mvp` (tracker) |
+| Commits ahead of `origin/feature/gestjobs-mvp` | 3 (2 feature + 1 docs) |
+| Diff vs `origin/feature/gestjobs-mvp` | 12 files, +685 / -188 |
+| Source-only diff (excl. `apply-progress.md` + `tasks.md` + lockfile) | 9 files, +538 net |
+| Lockfile delta | +36 / -18 (Supabase upgrade + zod add) |
+| 400-line review budget | **Exceeds budget by ~256 lines** (538 source) or ~138 lines (538 source + 18 lockfile delta). The user-selected PR 3 remains one autonomous Contacts + Resumes slice; further separation would break the PR boundary. |
+| Work-unit-commits compliance | ✅ Each of the 3 commits is a reviewable slice with one clear purpose; the repo still makes sense after applying any subset. |
+| Cumulative tracker status | PR 1 merged; PR 2 on child branch `feat/pr2-platforms` (parallel); PR 3 here. |
+| Tracker reconciliation | PR 2 and PR 3 both touch `package.json`, `pnpm-lock.yaml`, and `database.types.ts`. Whichever child merges second must rebase and reconcile the union of `platforms`, `contacts`, and `resumes` types. |
+| Rollback | `git revert` PR 3 only; no migration or external resource was introduced. |
+
+> The overage is **justified and documented**. The PR 3 slice is bounded by the user-selected `feature-branch-chain` strategy ("Contacts + Resumes" stays as one slice). The two feature commits are reviewed independently per the `work-unit-commits` skill.
+
+## Verification Commands Run (PR 3)
+
+| # | Command | Result |
+|---|---------|--------|
+| 1 | `git branch --show-current` | `feat/pr3-contacts-resumes` |
+| 2 | `git status --porcelain` | clean |
+| 3 | `git log feat/pr1-foundation..feat/pr3-contacts-resumes --oneline` | 3 commits ahead (`8ab3394`, `44ba21e`, `07ea229`) |
+| 4 | `git diff origin/feature/gestjobs-mvp..feat/pr3-contacts-resumes --stat` | 12 files, +685 / -188 |
+| 5 | `git show feat/pr3-contacts-resumes:src/app/contacts/actions.ts` | 86 L Server Actions with `auth.getUser()` + `redirect("/login")` |
+| 6 | `git show feat/pr3-contacts-resumes:src/app/contacts/page.tsx` | 105 L directory with reusable `ContactFields`, `role="status"` / `role="alert"` |
+| 7 | `git show feat/pr3-contacts-resumes:src/lib/validation/contact.ts` | 46 L Zod schema; 30-case inline check passes |
+| 8 | `git show feat/pr3-contacts-resumes:src/app/resumes/actions.ts` | 62 L `uploadResume` with SHA-256 + compensating cleanup |
+| 9 | `git show feat/pr3-contacts-resumes:src/app/resumes/page.tsx` | 84 L versions + signed URLs |
+| 10 | `git show feat/pr3-contacts-resumes:src/lib/validation/resume.ts` | 40 L PDF/DOCX + 10 MB allow-list |
+| 11 | `git show feat/pr3-contacts-resumes:next.config.mjs` | `bodySizeLimit: "11mb"` |
+| 12 | `git show feat/pr3-contacts-resumes:src/lib/supabase/database.types.ts` | `contacts` + `resumes` typed (97 L diff) |
+| 13 | `pnpm --version` | `9.0.0` |
+| 14 | `node --version` | `v22.13.0` |
+| 15 | `pnpm typecheck` | exit 0, 0 errors |
+| 16 | `pnpm build` | exit 0, 7 pages, Middleware 86.4 kB |
+| 17 | `pnpm install --frozen-lockfile` | exit 0, lockfile up to date |
+| 18 | `node --experimental-strip-types .tmp-pr3-check.ts` | 30/30 PASS |
+| 19 | `pnpm audit --prod` | 37 vulnerabilities (2 critical, 13 high, 18 moderate, 4 low) — see W1-PR3 |
+| 20 | `git grep -nE '(sk_live\|service_role\|RESEND_API_KEY)'` | only placeholder refs in `.env.example` + design-doc references — no real secrets in tracked files |
+| 21 | `Get-Command supabase` / `vercel` / `psql` | None installed locally → runtime Supabase verification deferred |
+
+## Deferred Verification (requires provisioned Supabase + Vercel)
+
+| Check | What it proves | Pre-conditions |
+|-------|----------------|----------------|
+| `createContact` persists a row; list refreshes | Authenticated CRUD | Supabase + magic-link auth |
+| `createContact` with blank name | `?error=Name%20is%20required.` redirect | Supabase + auth |
+| `updateContact` updates the same row | Mutation round-trip | Supabase + auth |
+| `deleteContact` removes the row | Mutation round-trip | Supabase + auth |
+| Upload valid PDF (≤ 10 MB) | Object at `resumes/{user_id}/{uuid}-{name}.pdf`; `resumes` row contains SHA-256 + size | Supabase + storage RLS |
+| Upload valid DOCX (≤ 10 MB) | Same as above with `.docx` extension | Same |
+| Upload oversized file | `?error=File%20must%20be%2010%20MB%20or%20smaller.` redirect | Supabase + auth |
+| Upload non-PDF/non-DOCX | `?error=Only%20PDF%20and%20DOCX%20files%20are%20allowed.` redirect | Same |
+| Signed URL fetch | 200 OK from created URL before 1-hour expiry | Same |
+| Cross-user `select` from `contacts` table | Only own rows visible (RLS) | Two test users |
+| Cross-user `upload` to `resumes/{other_user_id}/...` | Storage RLS denies | Two test users |
+| Force metadata insert failure | `storage.remove` removes the orphaned object | Triggered manually |
+
+**Note**: Spec scenarios from `R → Per-Application Role Assignment` and `Per-Application Attachment` are deferred to PR 4 (Applications) — they are explicitly out of PR 3 scope.
+
+## Issues Found (PR 3)
+
+### CRITICAL
+
+None.
+
+### WARNING
+
+- **W1-PR3 — `next@15.0.3` carries 37 published vulnerabilities; the CVE-2025-66478 the user flagged is the tip of the iceberg.** `pnpm audit` reports 2 critical (RCE in React flight protocol, authorization bypass in Middleware), 13 high, 18 moderate, and 4 low. The user-mentioned CVE-2025-66478 maps to GHSA-9qr9-h5gf-34mp (RCE in React flight protocol, patched in `15.0.5`). Other critical-class items include Authorization Bypass in Middleware (GHSA-f82v-jwr5-mffw, patched in `15.2.3`), SSRF in Server Actions / rewrites, and the libvips CVEs inherited via bundled `sharp@0.33.5`. The safest minimal upgrade is `next@15.5.21`. This is a pre-existing dependency posture unchanged by PR 3 itself — the warning belongs to PR 3 review only because PR 3 is the increment that pins the dependency tree to the current `next@15.0.3` resolution. Block deploy until upgraded; do not block merge (a focused upgrade PR can land independently after PR 2 / PR 3 merge).
+
+### SUGGESTION
+
+- **S1-PR3 — `contactSchema` does not call `.optional()` on its optional fields.** The transforms (`optionalText`, `optionalEmail`, `optionalHttpUrl`) start with `z.string().trim().max(...)` and never declare `optional()`. The schema therefore rejects inputs where any field is missing (not just empty). The current form always POSTs all 5 fields, so the runtime bug is unreachable today — but the schema is brittle. Suggested fix: chain `.optional()` on each helper, or wrap the relevant fields in `.transform((v) => v ?? null)`. Low severity; PR 6 hardening candidate.
+
+- **S2-PR3 — `database.types.ts` is a hand-maintained subset.** PR 3 adds `contacts` + `resumes`; PR 2 independently adds `platforms`. The two children must reconcile the union after one merges, then PR 6 replaces the file with `supabase gen types typescript` output. Already documented in `apply-progress.md` § "Deviations from Design".
+
+- **S3-PR3 — Empty `Relationships: []` for joined tables in `database.types.ts`.** Typed relationship joins (`application_contacts`, `application_resumes`) are untyped until PR 6 replaces the file. Already documented in PR 2's S3-PR2; the cumulative union confirms the same deficiency carries into PR 3.
+
+## Cumulative Verdict (PR 1 + PR 2 + PR 3)
+
+**PASS WITH WARNINGS**. All three slices pass static verification (typecheck + production build). The implementation matches the proposal, the contacts/resumes specs, and the design's architecture decisions. Runtime verification (Supabase CRUD, storage upload, signed URL fetch, cross-user RLS isolation, compensating storage cleanup) is deferred to PR 6 / the first preview deploy once Supabase is provisioned.
+
+The single non-cosmetic issue (W1-PR3) is a pre-existing `next@15.0.3` dependency posture that should be addressed in a focused security upgrade PR before any deployment. None of the issues block PR 3 merge into `feature/gestjobs-mvp`.
+
+## Skill Resolution
+
+`paths-injected` — exact requested skill files read before work: `sdd-verify/SKILL.md`, `work-unit-commits/SKILL.md`, `_shared/SKILL.md`. Shared references read: `sdd-phase-common.md`, `references/report-format.md`.
+
+## Next Recommended Action (PR 3 dispatch)
+
+1. **Open PR 3** with base `feature/gestjobs-mvp`, head `feat/pr3-contacts-resumes`. Title suggestion: `feat(contacts+resumes): add authenticated contact directory and private versioned resume uploads`. Body should mention the `next.config.mjs` body limit and the SHA-256 + compensating-cleanup contract.
+2. **W1-PR3 (security upgrade)** is independent of PR 3 merge; schedule a focused `chore(security): upgrade next@15.5.21` PR after PR 2 / PR 3 land. The user-selected delivery strategy is `ask-always`, so before opening either PR, ask the user whether to (a) accept the dependency overage as-is and address it in a security-only PR, or (b) include the `next@15.5.21` bump directly in PR 3.
+3. **PR 4 dispatch**: after PR 1 + PR 2 + PR 3 all merge into `feature/gestjobs-mvp`, branch `feat/pr4-applications` from the updated tracker.
+4. **Rebase reconciliation**: PR 2 and PR 3 both touch `package.json`, `pnpm-lock.yaml`, and `database.types.ts`. Whichever child merges second must rebase and reconcile the union of `platforms`, `contacts`, and `resumes` typed tables.
+5. **Runtime assurance**: provision Supabase and run the deferred contact/resume/RLS matrix in PR 6 or a preview deploy.
+
+---
+
+## Security Remediation Update
+
+After verification, the user approved resolving the Next.js dependency warning before opening PR 3.
+
+| Package | Previous | Current | Result |
+|---------|----------|---------|--------|
+| `next` | `15.0.3` | `15.5.21` | Critical Next.js advisories addressed |
+| `eslint-config-next` | `15.0.3` | `15.5.21` | Kept framework tooling aligned |
+| `sharp` (transitive) | `0.34.5` | `0.35.3` | Patched libvips dependency selected by the updated Next.js tree |
+| `postcss` | `8.4.31` | `8.5.26` | Patched PostCSS dependency selected by the updated Next.js tree |
+
+Post-remediation checks:
+
+- `pnpm install --frozen-lockfile` — passed.
+- `pnpm audit --prod` — no known vulnerabilities.
+- `pnpm typecheck` — passed with zero errors.
+- `pnpm build` — passed; seven pages generated.
+
+The original W1-PR3 warning is resolved. Runtime Supabase, Storage, and RLS verification remains deferred until those services are provisioned.
