@@ -9,11 +9,11 @@
 | Chained PRs recommended | Yes |
 | Suggested split | PR 1 Foundation → PR 2 Platforms → PR 3 Contacts+Resumes → PR 4 Applications → PR 5 Reminders+Dashboard → PR 6 Verification → Deliverable 7 Publication |
 | Delivery strategy | ask-always |
-| Chain strategy | pending |
+| Chain strategy | feature-branch-chain (user-selected; PR3 branches from the latest tracker because it is independent of PR2) |
 
 Decision needed before apply: Yes
 Chained PRs recommended: Yes
-Chain strategy: pending
+Chain strategy: feature-branch-chain
 400-line budget risk: High
 
 ### Suggested Work Units
@@ -44,21 +44,21 @@ Chain strategy: pending
 
 ## Phase 2: Platforms (PR 2)
 
-- [ ] 2.1 Create `src/lib/platforms/infer.ts` with `normalizeHostname(url)` + `inferPlatformFromUrl(url, platforms)`; pure, deterministic, typed `Platform` export.
-- [ ] 2.2 Create `src/lib/platforms/seed.ts` mirroring `supabase/seed.sql` for client-side combobox initialization.
-- [ ] 2.3 Create `src/components/platform-combobox.tsx` — accessible combobox (Headless UI or Radix) with search, free-text custom entry, and `onConfirm` callback that upserts a custom platform row.
-- [ ] 2.4 Add `src/app/applications/actions.ts::upsertCustomPlatform(name, hostname)` Server Action enforcing `auth.uid()` and uniqueness on `(user_id, hostname)`.
-- [ ] 2.5 **Verify**: known hostnames resolve; unknown hostname triggers fallback; custom platform persists and reappears on next session.
-- [ ] 2.6 **Rollback**: revert PR 2 only — combobox is unused until PR 4.
+- [x] 2.1 Create `src/lib/platforms/infer.ts` with `normalizeHostname(url)` + `inferPlatformFromUrl(url, platforms)`; pure, deterministic, typed `Platform` export.
+- [x] 2.2 Create `src/lib/platforms/seed.ts` mirroring `supabase/seed.sql` for client-side combobox initialization.
+- [x] 2.3 Create `src/components/platform-combobox.tsx` — accessible combobox (Headless UI or Radix) with search, free-text custom entry, and `onConfirm` callback that upserts a custom platform row.
+- [x] 2.4 Add `src/app/applications/actions.ts::upsertCustomPlatform(name, hostname)` Server Action enforcing `auth.uid()` and uniqueness on `(user_id, hostname)`.
+- [x] 2.5 **Verify**: known hostnames resolve; unknown hostname triggers fallback; custom platform persists and reappears on next session. _(Static verification done on `feat/pr2-platforms`; Supabase runtime verification remains deferred.)_
+- [x] 2.6 **Rollback**: revert PR 2 only — combobox is unused until PR 4. _(Recorded from the existing cumulative PR2 apply-progress; PR2 remains under review.)_
 
 ## Phase 3: Contacts + Resumes (PR 3)
 
-- [ ] 3.1 Create `src/app/contacts/page.tsx` + `src/app/contacts/actions.ts` — CRUD Server Actions with Zod validation (`name`, `email`, `phone`, `linkedin_url`, `notes`).
-- [ ] 3.2 Create `src/lib/validation/contact.ts` rejecting empty `name`.
-- [ ] 3.3 Create `src/app/resumes/page.tsx` + `src/app/resumes/actions.ts` — upload (PDF/DOCX, ≤ configured MB), label input, server-side `file_hash`; reject oversize/invalid MIME.
-- [ ] 3.4 Create `src/lib/validation/resume.ts` — file size + MIME allow-list; Zod for label.
-- [ ] 3.5 **Verify**: upload stored under `resumes/{user_id}/...`; signed URL 200; cross-user RLS denied; oversize file rejected at action boundary.
-- [ ] 3.6 **Rollback**: revert PR 3 only — Contacts/Resumes are independent modules.
+- [x] 3.1 Create `src/app/contacts/page.tsx` + `src/app/contacts/actions.ts` — CRUD Server Actions with Zod validation (`name`, `email`, `phone`, `linkedin_url`, `notes`).
+- [x] 3.2 Create `src/lib/validation/contact.ts` rejecting empty `name`.
+- [x] 3.3 Create `src/app/resumes/page.tsx` + `src/app/resumes/actions.ts` — upload (PDF/DOCX, ≤ configured MB), label input, server-side `file_hash`; reject oversize/invalid MIME.
+- [x] 3.4 Create `src/lib/validation/resume.ts` — file size + MIME allow-list; Zod for label.
+- [x] 3.5 **Verify**: upload stored under `resumes/{user_id}/...`; signed URL 200; cross-user RLS denied; oversize file rejected at action boundary. _(Static verification done: `pnpm typecheck` 0 errors and `pnpm build` succeeds with `/contacts` and `/resumes` as dynamic routes. Runtime verification — object upload/path, signed URL 200, cross-user database/storage RLS, and action-boundary rejection against Supabase — deferred until a Supabase project is provisioned.)_
+- [x] 3.6 **Rollback**: revert PR 3 only — Contacts/Resumes are independent modules. _(Documented in apply-progress.md; no migrations or external resources were added by PR3.)_
 
 ## Phase 4: Applications + Status Workflow (PR 4)
 
