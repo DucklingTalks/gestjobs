@@ -16,7 +16,7 @@ import {
  * typed clients in src/lib/supabase/client.ts and server.ts.
  */
 export async function middleware(request: NextRequest) {
-  let response = NextResponse.next({ request });
+  const response = NextResponse.next({ request });
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,

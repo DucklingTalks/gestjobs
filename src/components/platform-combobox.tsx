@@ -35,7 +35,8 @@
  *                     (e.g. a help text node); forwarded to aria-describedby.
  */
 
-import { useId, useMemo, useRef, useState, useCallback, useEffect, KeyboardEvent } from "react";
+import { useId, useMemo, useRef, useState, useCallback, useEffect } from "react";
+import type { KeyboardEvent } from "react";
 
 import { searchPlatforms, type Platform } from "@/lib/platforms/infer";
 
