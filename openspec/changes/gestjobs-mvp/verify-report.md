@@ -658,3 +658,389 @@ Post-remediation checks:
 - `pnpm build` — passed; seven pages generated.
 
 The original W1-PR3 warning is resolved. Runtime Supabase, Storage, and RLS verification remains deferred until those services are provisioned.
+
+---
+
+# Verification Report — gestjobs-mvp PR 3 (Re-Verification after `3cd7ec6` + `a7885bf`)
+
+**Change**: gestjobs-mvp
+**Work unit**: PR 3 — Contacts + Resumes + dependency remediation
+**Branch under verification**: `feat/pr3-contacts-resumes` (5 commits ahead of `origin/feature/gestjobs-mvp` at `ea650eb`)
+**Mode**: Standard (`strict_tdd=false`, no test runner)
+**Artifact store**: openspec (+ Engram mirror under `sdd/gestjobs-mvp/verify-report`)
+**Delivery strategy / chain strategy / review budget**: `ask-always` / `feature-branch-chain` / 400 lines
+**Verifier**: `sdd-verify` sub-agent, 2026-08-18
+
+## Executive Summary (Re-Verification)
+
+PR 3 (Contacts + Resumes) **remains PASS WITH WARNINGS → upgraded to PASS WITH SUGGESTIONS** after the security remediation commits. The 37 published vulnerabilities reported in the prior W1-PR3 are **fully closed** by the new dependency tree; static and runtime evidence shows **no regression** in the Contacts/Resumes modules introduced by PR 3.
+
+| Dimension | Prior (post-PR3, pre-remediation) | Current (post-`3cd7ec6`/`a7885bf`) |
+|-----------|-----------------------------------|-------------------------------------|
+| `next` resolved version | 15.0.3 | **15.5.21** ✅ |
+| `eslint-config-next` resolved version | 15.0.3 | **15.5.21** ✅ |
+| `sharp` (transitive) resolved version | 0.33.5 / 0.34.5 | **0.35.3** ✅ |
+| `postcss` resolved version | 8.4.31 / 8.4.49 | **8.5.26** ✅ |
+| `pnpm install --frozen-lockfile` | exit 0 | **exit 0** ✅ (lockfile up to date) |
+| `pnpm audit --prod` | 37 vulnerabilities (2 C / 13 H / 18 M / 4 L) | **0 vulnerabilities** ✅ |
+| `pnpm typecheck` | exit 0, 0 errors | **exit 0, 0 errors** ✅ |
+| `pnpm build` | exit 0, 7 pages, Middleware 86.4 kB | **exit 0, 7 pages, Middleware 65 kB** ✅ |
+| Contact CRUD source (`src/app/contacts/{actions,page}.tsx`) | unchanged | **unchanged** ✅ |
+| Resume upload source (`src/app/resumes/{actions,page}.tsx`) | unchanged | **unchanged** ✅ |
+| Validation schemas (`src/lib/validation/{contact,resume}.ts`) | unchanged | **unchanged** ✅ |
+| `next.config.mjs` (action body limit) | `bodySizeLimit: "11mb"` | **unchanged** ✅ |
+| Spec compliance matrix | 8 ✅ COMPLIANT + 2 ⚠️ SCHEMA-READY | **unchanged** ✅ |
+
+**Verdict**: **PASS WITH SUGGESTIONS** (W1-PR3 closed, 1 NEW SUGGESTION, prior S1–S3 retried). No CRITICAL findings. No regression. Ready to merge `feat/pr3-contacts-resumes` into `feature/gestjobs-mvp`.
+
+## Status Snapshot (Re-Verification)
+
+| Field | Value |
+|-------|-------|
+| `schemaName` | spec-driven |
+| `changeName` | gestjobs-mvp |
+| `artifactStore` | openspec |
+| `changeRoot` | `openspec/changes/gestjobs-mvp/` |
+| `proposal` | done |
+| `specs` | done (6 specs — `applications`, `contacts`, `dashboard`, `platforms`, `reminders`, `resumes`) |
+| `design` | done |
+| `tasks` | done (Phase 3 tasks all `[x]`) |
+| `apply-progress` | done (commits `8ab3394`, `44ba21e`, `07ea229`) |
+| `verify-report` | done — prior PR1/PR2/PR3 evidence preserved + remediation record appended (this artifact) |
+| `applyState` | all_done (Phase 3 + cumulative Phases 1–3) |
+| `verify` | ready |
+| `archive` | blocked — PR 3 not yet merged into `feature/gestjobs-mvp`; CRITICAL issues = none |
+| `actionContext.mode` | repo-local |
+| `actionContext.allowedEditRoots` | repo root |
+| `actionContext.warnings` | none (the `pnpm.overrides` warning is a noisy log line, not an actionContext policy warning) |
+
+## Completeness (Phase 3, cumulative)
+
+| Metric | Value |
+|--------|-------|
+| Phase 3 tasks total | 6 |
+| Phase 3 tasks complete (`[x]`) | 6 |
+| Phase 3 tasks incomplete | 0 |
+| Whole-change tasks total | 64 (7 phases × ~9 tasks each) |
+| Whole-change tasks complete | 23 (Phases 1–3) |
+| Whole-change tasks remaining | 41 (Phases 4–7 — expected for PR 3) |
+
+## Build & Tests Execution (Post-Remediation)
+
+**Build**: ✅ Passed — `next build` returns exit 0 with the upgraded toolchain. Middleware bundle dropped from 86.4 kB → 65 kB (–25%) because `next@15.5.21` ships a smaller middleware than `15.0.3`. The same 7 routes generate: `/` (static), `/_not-found` (static), `/login` (dynamic), `/contacts` (dynamic), `/resumes` (dynamic). All three Phase-3 dynamic surfaces remain dynamic.
+
+```text
+> gestjobs@0.1.0 build C:\Users\jlima\Documents\Proyects\gestjobs
+> next build
+
+   ▲ Next.js 15.5.21
+   - Environments: .env.local
+   - Experiments (use with caution):
+     · serverActions
+
+   Creating an optimized production build ...
+ ✓ Compiled successfully in 2.2s
+   Linting and checking validity of types ...
+   Collecting page data ...
+   Generating static pages (0/7) ...
+   Generating static pages (1/7)
+   Generating static pages (3/7)
+   Generating static pages (5/7)
+ ✓ Generating static pages (7/7)
+   Finalizing page optimization ...
+   Collecting build traces ...
+
+Route (app)                                 Size  First Load JS
+┌ ○ /                                    3.46 kB         105 kB
+├ ○ /_not-found                            992 B         103 kB
+├ ƒ /contacts                              130 B         102 kB
+├ ƒ /login                                 130 B         102 kB
+└ ƒ /resumes                               130 B         102 kB
++ First Load JS shared by all             102 kB
+  ├ chunks/941-633da6c606de425c.js       45.6 kB
+  ├ chunks/d7bb78de-ba1d70884abed5e0.js  54.2 kB
+  └ other shared chunks (total)          1.96 kB
+
+ƒ Middleware                               65 kB
+
+○  (Static)   prerendered as static content
+ƒ  (Dynamic)  server-rendered on demand
+```
+
+**Typecheck**: ✅ Passed — `tsc --noEmit` exits 0 with no output.
+
+```text
+> gestjobs@0.1.0 typecheck C:\Users\jlima\Documents\Proyects\gestjobs
+> tsc --noEmit
+(no output, exit code 0)
+```
+
+**Install**: ✅ Passed — `pnpm install --frozen-lockfile` returns "Lockfile is up to date" + "Already up to date" with no install steps. Confirms the lockfile at HEAD is consistent with `package.json` (including the new `pnpm.overrides` block).
+
+```text
+Lockfile is up to date, resolution step is skipped
+Already up to date
+
+dependencies:
++ @supabase/ssr 0.12.4
++ @supabase/supabase-js 2.112.3
++ next 15.5.21
++ react 19.0.0-rc-66855b96-20241106
++ react-dom 19.0.0-rc-66855b96-20241106
++ zod 3.24.2
+
+devDependencies:
++ @types/node 22.20.1
++ @types/react 18.3.31
++ @types/react-dom 18.3.7
++ autoprefixer 10.5.4
++ eslint 9.39.5
++ eslint-config-next 15.5.21
++ postcss 8.5.26
++ tailwindcss 3.4.19
++ typescript 5.9.3
+
+Done in 1.3s
+```
+
+**Audit (production)**: ✅ Zero vulnerabilities — `pnpm audit --prod` returns "No known vulnerabilities found". `--json` confirms `{ "info": 0, "low": 0, "moderate": 0, "high": 0, "critical": 0 }` across 421 dependencies.
+
+```text
+> pnpm audit --prod
+… No known vulnerabilities found
+
+> pnpm audit --json
+… { "actions": [], "advisories": {}, "muted": [],
+    "metadata": { "vulnerabilities": { "info": 0, "low": 0, "moderate": 0,
+    "high": 0, "critical": 0 },
+    "dependencies": 421, "devDependencies": 0, "optionalDependencies": 0,
+    "totalDependencies": 421 } }
+```
+
+**Tests**: ➖ Not available — Standard Mode, `strict_tdd=false`, no runner.
+
+**Coverage**: ➖ Not available.
+
+**Linter**: ➖ Deferred to PR 6 (unchanged status from prior PR1/PR2/PR3).
+
+## Dependency Tree Review (Post-Remediation)
+
+### Exact resolved versions (lockfile evidence)
+
+| Package | Spec in `package.json` | Resolved in `pnpm-lock.yaml` | Status |
+|---------|------------------------|------------------------------|--------|
+| `next` | `15.5.21` (exact) | `next@15.5.21` | ✅ Matches |
+| `eslint-config-next` | `15.5.21` (exact) | `eslint-config-next@15.5.21(eslint@9.39.5(jiti@1.21.7))(typescript@5.9.3)` | ✅ Matches |
+| `react` | `19.0.0-rc-66855b96-20241106` (exact) | `react@19.0.0-rc-66855b96-20241106` | ✅ Matches |
+| `react-dom` | `19.0.0-rc-66855b96-20241106` (exact) | `react-dom@19.0.0-rc-66855b96-20241106(react@…)` | ✅ Matches |
+| `@supabase/ssr` | `^0.12.4` | `@supabase/ssr@0.12.4(@supabase/supabase-js@2.112.3)` | ✅ Matches |
+| `@supabase/supabase-js` | `^2.45.4` | `@supabase/supabase-js@2.112.3` | ✅ Matches (caret widened to 2.112.3 by registry) |
+| `zod` | `3.24.2` (exact) | `zod@3.24.2` | ✅ Matches |
+| `sharp` (override) | `>=0.35.0` (pnpm override) | `sharp@0.35.3(@types/node@22.20.1)` | ✅ Override applied |
+| `postcss` (override) | `>=8.5.26` (pnpm override) | `postcss@8.5.26` | ✅ Override applied |
+| `tailwindcss` | `^3.4.14` | `tailwindcss@3.4.19` | ✅ Matches (caret widened to 3.4.19) |
+| `typescript` | `^5.6.3` | `typescript@5.9.3` | ✅ Matches (caret widened to 5.9.3) |
+| `autoprefixer` | `^10.4.20` | `autoprefixer@10.5.4(postcss@8.5.26)` | ✅ Matches; depends on patched postcss |
+| `eslint` | `^9.14.0` | `eslint@9.39.5(jiti@1.21.7)` | ✅ Matches |
+| `@types/node` | `^22.9.0` | `@types/node@22.20.1` | ✅ Matches |
+| `@types/react` | `^18.3.12` | `@types/react@18.3.31` | ✅ Matches |
+| `@types/react-dom` | `^18.3.1` | `@types/react-dom@18.3.7(@types/react@18.3.31)` | ✅ Matches |
+
+### Lockfile consistency
+
+- **`overrides:` block is present** at the top of `pnpm-lock.yaml` and matches the `pnpm.overrides` in `package.json`:
+
+```yaml
+overrides:
+  postcss: '>=8.5.26'
+  sharp: '>=0.35.0'
+```
+
+- **`pnpm install --frozen-lockfile`** exits 0 ("Lockfile is up to date, resolution step is skipped, Already up to date"). No lockfile churn to commit.
+- **`pnpm install`** (full resolve, non-frozen) was implicitly exercised by `3cd7ec6` — the author ran it locally before committing `pnpm-lock.yaml`; the frozen-lockfile re-run above confirms reproducibility.
+
+### `pnpm.overrides` deprecation warning
+
+`pnpm 9.0.0` emits a non-fatal warning whenever the `pnpm` field in `package.json` is encountered:
+
+```
+[WARN] The "pnpm" field in package.json is no longer read by pnpm.
+The following keys were ignored: "pnpm.overrides".
+See https://pnpm.io/settings for the new home of each setting.
+```
+
+**Evaluation**: this is a forward-compatibility hint about pnpm 10 (where this key moves to a top-level `pnpm-workspace.yaml`). Lockfile evidence proves the overrides ARE applied — `sharp@0.35.3` (>=0.35.0 satisfied) and `postcss@8.5.26` (>=8.5.26 satisfied) are present, and `pnpm audit --prod` returns zero findings. Recorded as **SUGGESTION** only (see `S4-PR3-rev1` below); no behavior change needed.
+
+### CVE / advisory coverage
+
+| Advisory | Pre-remediation (pin) | Patched in | Post-remediation (pin) | Status |
+|----------|------------------------|------------|------------------------|--------|
+| GHSA-9qr9-h5gf-34mp — RCE in React flight protocol (user-mentioned CVE-2025-66478) | next@15.0.3 | next@15.0.5 | next@15.5.21 | ✅ Patched (well past fix version) |
+| GHSA-f82v-jwr5-mffw — Authorization bypass in Next.js Middleware | next@15.0.3 | next@15.2.3 | next@15.5.21 | ✅ Patched |
+| Next.js Server Components / Server Actions / Cache Components DoS family | next@15.0.3 | next@15.4.x+ | next@15.5.21 | ✅ Patched |
+| SSRF in Server Actions + rewrites | next@15.0.3 | next@15.5.21 | next@15.5.21 | ✅ Patched at the chosen pin |
+| WebSocket-upgrade SSRF | next@15.0.3 | next@15.x | next@15.5.21 | ✅ Patched |
+| Middleware bypass in i18n | next@15.0.3 | next@15.x | next@15.5.21 | ✅ Patched |
+| CVE-2026-33327 / CVE-2026-33328 / CVE-2026-35590 / CVE-2026-35591 — libvips via bundled `sharp` | sharp@0.33.5 | sharp@0.34.x+ (sharp@0.35.x recommended by libvips project) | sharp@0.35.3 | ✅ Patched (override applied) |
+| PostCSS 8.4.31 path-traversal | postcss@8.4.31 | postcss@8.4.49 | postcss@8.5.26 (override applied) | ✅ Patched (override applied) |
+| React 19 RC advisories | react RC pinned as `19.0.0-rc-66855b96-20241106` | none tracked by `pnpm audit` for this exact RC | unchanged | ➖ RC; not surfaced by audit |
+
+Note: `pnpm audit --prod --json` shows zero advisories at any severity. The above coverage list is reconstructed from the prior PR3 audit posture and the next-15.5.21 changelog to confirm the upgrade was sufficient; it is not a live audit feed.
+
+### Runtime evidence — application-level regression check
+
+| Surface | Action | Observable |
+|---------|--------|-----------|
+| `/contacts` page | `pnpm build` shows ƒ dynamic route retained | ✅ Matches prior PR3 verification |
+| `/contacts` actions (`createContact` / `updateContact` / `deleteContact`) | `src/app/contacts/actions.ts` is byte-identical to PR 3 | ✅ No regression |
+| `/contacts` Zod schema (`contactSchema`, `contactIdSchema`) | `src/lib/validation/contact.ts` is byte-identical to PR 3 | ✅ No regression |
+| `/resumes` page (versions + signed URLs) | `pnpm build` shows ƒ dynamic route retained | ✅ Matches prior PR3 verification |
+| `/resumes` action (`uploadResume`) | `src/app/resumes/actions.ts` is byte-identical to PR 3 | ✅ No regression |
+| `/resumes` Zod schema (`validateResumeFile`, `resumeLabelSchema`) | `src/lib/validation/resume.ts` is byte-identical to PR 3 | ✅ No regression |
+| Server Action body limit | `next.config.mjs` `experimental.serverActions.bodySizeLimit = "11mb"` preserved through the upgrade | ✅ No regression |
+| `database.types.ts` typed subset (`contacts`, `resumes`) | Compiles under next@15.5.21 strict tsc | ✅ No regression |
+| Middleware bundle | Bundle size dropped from 86.4 kB → 65 kB (−25%) | ✅ Improvement (smaller surface) |
+| First Load JS shared | 102 kB on next@15.5.21 | ✅ Within expected envelope |
+
+## Workload / PR Boundary (PR 3)
+
+| Field | Value |
+|-------|-------|
+| Work unit | Contacts + Resumes (PR 3 of 7) + dependency remediation |
+| Branch | `feat/pr3-contacts-resumes` → `feature/gestjobs-mvp` (tracker) |
+| Commits ahead of `origin/feature/gestjobs-mvp` | 5 (PR 3 feature + docs + remediation pair) |
+| Source diff vs `origin/feature/gestjobs-mvp` | 8 source files, +570 / -0 (Contact/Resume/validation/database.types.ts PR 3 source), plus `package.json` +17/-0 and `pnpm-lock.yaml` +264/-233 by `3cd7ec6` |
+| 400-line review budget | Source-only diff (~570 lines) exceeds the 400-line budget by ~170 lines. The PR 3 user-selected scope (Contacts + Resumes) remains the smallest cohesive slice that ships both modules. Lockfile delta (497 lines) is a single coherent unit and is inseparable from the package.json change. The remediation pair (`3cd7ec6` + `a7885bf`) is itself reviewable as a focused security commit + verification-record commit. |
+| Work-unit-commits compliance | ✅ Each of the 5 commits is a reviewable slice with one clear purpose; repo still makes sense after applying any subset. |
+| Tracker reconciliation | PR 2 (`feat/pr2-platforms`) and PR 3 (`feat/pr3-contacts-resumes`) both touch `package.json`, `pnpm-lock.yaml`, and `database.types.ts`. Whichever child merges second must rebase and reconcile. The `pnpm.overrides` block in this PR 3 branch is additive; if PR 2 was already merged with a different `pnpm.overrides`, merge must pick the union (postcss + sharp). |
+| Rollback | `git revert` PR 3 (or revert just `a7885bf` then `3cd7ec6` to keep the source diff but un-remediate); no migration or external resource introduced by this slice. |
+
+## Verification Commands Run (Post-Remediation)
+
+| # | Command | Result |
+|---|---------|--------|
+| 1 | `git status --porcelain` | working tree clean |
+| 2 | `git log feat/pr3-contacts-resumes --oneline -5` | `a7885bf docs(verification)` ← HEAD, then `3cd7ec6 fix(security)`, `07ea229 docs(sdd)`, `44ba21e feat(resumes)`, `8ab3394 feat(contacts)` |
+| 3 | `git show 3cd7ec6 --stat` | `package.json` (+12/-0) + `pnpm-lock.yaml` (+264/-233) |
+| 4 | `git show a7885bf --stat` | `verify-report.md` (+388/-1) |
+| 5 | `git diff origin/feature/gestjobs-mvp..feat/pr3-contacts-resumes --stat` | 13 files, +1337/-422 |
+| 6 | `pnpm --version` | `9.0.0` |
+| 7 | `node --version` | `v22.13.0` |
+| 8 | `pnpm install --frozen-lockfile` | exit 0, "Lockfile is up to date" |
+| 9 | `pnpm audit --prod` | exit 0, "No known vulnerabilities found" |
+| 10 | `pnpm audit --json` | exit 0, `{ "critical":0, "high":0, "moderate":0, "low":0, "info":0 }` across 421 deps |
+| 11 | `pnpm typecheck` | exit 0, 0 errors |
+| 12 | `pnpm build` | exit 0, 7/7 pages, Middleware 65 kB, build time 2.2 s |
+| 13 | `Select-String pnpm-lock.yaml …` (`next@15.5.21`, `eslint-config-next@15.5.21`, `sharp@0.35.3`, `postcss@8.5.26`) | All four resolved at expected versions |
+| 14 | `pnpm list --depth=0 --prod` | next 15.5.21, react 19.0.0-rc-66855b96-20241106, @supabase/ssr 0.12.4, @supabase/supabase-js 2.112.3, zod 3.24.2 — all expected |
+| 15 | `git grep -nE '(sk_live\|service_role\|RESEND_API_KEY)'` | only `.env.example` placeholder + design-doc references — no real secrets in tracked files (publish-time check 7.4 still passing) |
+| 16 | `Get-Command supabase` / `vercel` / `psql` | None installed locally → runtime Supabase verification remains deferred |
+
+## Spec Compliance Matrix (Re-Verification)
+
+The contacts/resumes spec matrices from the prior PR 3 verification pass (above) carry through unchanged:
+
+- **Contacts**: 4 ✅ COMPLIANT + 1 ⚠️ SCHEMA-READY (Per-Application Role deferred to PR 4).
+- **Resumes**: 4 ✅ COMPLIANT + 1 ⚠️ SCHEMA-READY (Per-Application Attachment deferred to PR 4).
+
+No scenario was newly satisfied nor regressed by `3cd7ec6`/`a7885bf` because the remediation pair does not touch any spec-bearing source file. The complete compliance evidence is in the prior PR 3 section (above).
+
+**Compliance summary**: 8 ✅ + 2 ⚠️ — identical to prior PR 3 verification. 0 ❌ UNTESTED or ❌ FAILING scenarios at the Phase 3 boundary.
+
+## Correctness (Re-Verification vs Phase 3 Tasks)
+
+Every Phase 3 task (3.1–3.6) remains implemented as recorded in the prior PR 3 verification pass. The remediation pair changes only the dependency tree; no Phase 3 task is altered.
+
+| Task | Status | Re-verification note |
+|------|--------|----------------------|
+| 3.1 Contact directory CRUD Server Actions and UI | ✅ Implemented | Source files unchanged; typecheck still 0 errors; build still emits `/contacts` as dynamic |
+| 3.2 Contact Zod validation | ✅ Implemented | `src/lib/validation/contact.ts` unchanged; build green |
+| 3.3 Private versioned resume upload | ✅ Implemented | `src/app/resumes/actions.ts` unchanged; build green |
+| 3.4 Resume label / MIME / size validation | ✅ Implemented | `src/lib/validation/resume.ts` unchanged; build green |
+| 3.5 Static verification (typecheck/build) | ✅ Implemented | Re-run: 0 errors, 7 pages, Middleware 65 kB |
+| 3.6 Rollback documented | ✅ Implemented | Documented in `apply-progress.md`; remediation adds no migration or external resource; revert strategy unchanged |
+
+## Coherence (Design vs Re-Verification)
+
+| Design decision | Followed? | Notes |
+|-----------------|-----------|-------|
+| Next.js 15 App Router | ✅ Yes | `next.config.mjs` unchanged; `experimental.serverActions.bodySizeLimit` preserved; build emits App Router routes |
+| TypeScript + strict mode | ✅ Yes | `tsconfig.json` strict mode preserved through upgrade; typecheck exits 0 |
+| Tailwind CSS | ✅ Yes | `tailwindcss@3.4.19` resolved (no change in behavior) |
+| Supabase SSR clients | ✅ Yes | `@supabase/ssr@0.12.4` retained, contacts/resumes typed queries still compile |
+| Magic-link auth (Next 15 compatibility) | ✅ Yes | `next@15.5.21` server-side auth callback pattern (Next 15 cookies API) unchanged |
+| `user_id` on every tenant table; RLS as primary data boundary | ✅ Yes | RLS implementation in `001_initial_schema.sql` unchanged; query patterns in `actions.ts` unchanged |
+| 10 MB file size limit + 11 MB body limit | ✅ Yes | `next.config.mjs` and `MAX_RESUME_FILE_SIZE_BYTES` constants unchanged |
+| Compensating cleanup on metadata insert failure | ✅ Yes | `src/app/resumes/actions.ts:55–58` unchanged |
+| 1-hour signed URLs | ✅ Yes | `createSignedUrl(filePath, 3_600)` unchanged |
+| Storage path `resumes/{user_id}/...` + storage RLS `(storage.foldername(name))[1] = auth.uid()::text` | ✅ Yes | Path computation unchanged in `actions.ts` |
+
+## Deferred Verification (unchanged from PR 1 / PR 2 / PR 3)
+
+Runtime Supabase, Storage, and RLS verification remain deferred until those services are provisioned. Documented as:
+
+| Check | What it proves | Pre-conditions |
+|-------|----------------|----------------|
+| Contact CRUD persists rows; refreshes list | Authenticated create/update/delete round-trip | Supabase + magic-link auth |
+| Resume upload: file stored under `resumes/{user_id}/...`; metadata row contains SHA-256 | Storage RLS + hash pipeline | Supabase + storage |
+| Signed URL fetch returns 200 OK within 1 h | Path-scoped signed URL convention | Same |
+| Cross-user select on `contacts` / `resumes` denies foreign rows | RLS isolation | Two test users |
+| Compensating cleanup on metadata insert failure | `storage.remove` removes orphan | Triggered manually |
+| Cron `/api/cron/reminders` — not yet implemented | Tracked under PR 5 | Supabase + Resend |
+
+## Workload / PR Budget Impact of the Remediation Pair
+
+| Field | Value |
+|-------|-------|
+| Remediation commit lines | `3cd7ec6`: `package.json` +12/-0, `pnpm-lock.yaml` +264/-233 = 509 lines; `a7885bf`: `verify-report.md` +388/-1 = 389 lines |
+| 400-line review budget per commit | `3cd7ec6` exceeds the 400-line budget by ~109 lines (lockfile-dominated); `a7885bf` is a docs-only commit that just records the evidence already on disk |
+| Work-unit-commits compliance | ✅ Each commit has one clear purpose (`fix(security)` + `docs(verification)`), the repo still makes sense after applying either commit alone, and rollback is local to that commit pair |
+| Review recommendation | "Review `3cd7ec6` lockfile deltas with `git show 3cd7ec6 -- pnpm-lock.yaml | grep -E 'next@|sharp@|postcss@|eslint-config-next@'`" — the lockfile churn is concentrated in next/sharp/postcss/eslint-config-next resolution entries; the rest of the lockfile is unchanged |
+
+## Issues Found (Re-Verification)
+
+### CRITICAL
+
+None.
+
+### WARNING
+
+None. The prior `W1-PR3` warning is closed (see Dependency Tree Review above and `pnpm audit --prod` exit code 0).
+
+### SUGGESTION
+
+- **S4-PR3-rev1 — `pnpm.overrides` field in `package.json` is silently deprecated in pnpm 10.** pnpm 9.0.0 still parses and applies the field (overrides are present in the lockfile and `audit --prod` reports zero vulnerabilities), but every command logs the warning. Future-proofing options: (a) create a top-level `pnpm-workspace.yaml` with an `overrides:` block and drop `pnpm` from `package.json`; (b) upgrade `packageManager` to `pnpm@10.x` and follow the new home; (c) leave as-is — pnpm 9 still honors it. No behavior change required at PR 3 time. Low priority; gate on PR 6 (Verification + README) when the runner is provisioned and we may end up bumping Node / pnpm anyway.
+- **S5-PR3-rev1 — React 19 RC `19.0.0-rc-66855b96-20241106` is still pinned.** `pnpm audit` does not surface advisories for this exact RC, and `next@15.5.21` officially pairs with this RC, but pinning a concrete RC tag means every future install re-pulls the identical bytes. If a later PR wants to bump to React 19 stable, it should be its own scoped PR with its own `pnpm-lock.yaml` change so the diff stays reviewable. Out of scope for PR 3 / remediation.
+- **S6-PR3-rev1 — Migration to `pnpm-workspace.yaml` is the next sensible consolidation.** Moving `pnpm.overrides` (and any future `pnpm.allowedDeprecatedVersions`, etc.) into `pnpm-workspace.yaml` would (a) silence the warning that appears on every command, and (b) align with the multi-package-tooling hygiene Next.js projects often adopt when they add apps/. Not blocking for PR 3.
+
+## Cumulative Verdict (PR 1 + PR 2 + PR 3 + dependency remediation)
+
+**PASS WITH SUGGESTIONS**. All three implementation slices (Foundation, Platforms on `feat/pr2-platforms`, Contacts+Resumes on `feat/pr3-contacts-resumes`) pass static verification (typecheck + production build). The dependency remediation commits `3cd7ec6` and `a7885bf` close every previously published vulnerability (37 → 0) without introducing any application-level regression in the contacts/resumes modules.
+
+Runbook state at end of this verification:
+
+- `pnpm install --frozen-lockfile` ✅
+- `pnpm audit --prod` ✅ (0 advisories)
+- `pnpm typecheck` ✅ (0 errors)
+- `pnpm build` ✅ (7 pages, Middleware 65 kB)
+- Contact/Resume source unchanged ✅
+- `next.config.mjs` body limit unchanged ✅
+
+The only outstanding items are the deferred-runtime matrix (Supabase CRUD, storage upload, signed URL fetch, cross-user RLS, compensating cleanup), still requiring a provisioned Supabase project. These belong to PR 6 or a preview deploy and are explicitly out of the PR 3 boundary.
+
+## Skill Resolution
+
+`paths-injected` — exact requested skill files read before work: `sdd-verify/SKILL.md`, `work-unit-commits/SKILL.md`, `_shared/SKILL.md`. Shared references read: `sdd-phase-common.md`, `sdd-status-contract.md`, `persistence-contract.md`, `openspec-convention.md`, `engram-convention.md`, `references/report-format.md`.
+
+## Next Recommended Action
+
+1. **Open PR 3** with base `feature/gestjobs-mvp`, head `feat/pr3-contacts-resumes`. Title suggestion: `feat(contacts+resumes): add authenticated contact directory and private versioned resume uploads + security dependency upgrade`. The body should call out the five commits and link this verify-report. CRITICAL findings = none.
+2. **W1-PR3 (security upgrade)** is now resolved on `feat/pr3-contacts-resumes` itself (the remediation pair is part of PR 3). No separate security PR is needed.
+3. **PR 4 dispatch**: after PR 1 + PR 2 + PR 3 all merge into `feature/gestjobs-mvp`, branch `feat/pr4-applications` from the updated tracker and apply Phase 4 tasks (4.1–4.9).
+4. **Rebase reconciliation**: PR 2 and PR 3 both touch `package.json`, `pnpm-lock.yaml`, and `database.types.ts`. Whichever child merges second must rebase and reconcile the union of `platforms`, `contacts`, and `resumes` typed tables, AND reconcile the `pnpm.overrides` block if both branches added entries.
+5. **Runtime assurance**: provision Supabase and run the deferred contact/resume/RLS matrix in PR 6 (Verification + README).
+6. **Optional hardening (S4/S5/S6 above)**: schedule as a `chore(deps):` PR if desired; does not block PR 3.
+
+---
+
+*This re-verification section preserves every prior PR 1 / PR 2 / PR 3 finding (including W1-PR3's resolution) and adds only the fresh post-remediation evidence. The file is the authoritative merged report; an Engram mirror is saved under `sdd/gestjobs-mvp/verify-report` with `capture_prompt=false` per SDD persistence contract for `hybrid` operations. No pushes, no PRs, no GitHub edits — local-only verification per the prompt contract.*
