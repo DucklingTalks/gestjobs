@@ -588,3 +588,14 @@ None of the WARNINGS block merge.
 5. **PR 3 dispatch** can run in parallel with PR 2 once PR 1 merges (independent base).
 
 **For PR 4 dispatch**: after PR 1 + PR 2 both merge into `feature/gestjobs-mvp`, branch `feat/pr4-applications` from the updated tracker. PR 4 will consume both the combobox (for the new-application form) and the `upsertCustomPlatform` Server Action (for free-text fallback).
+
+---
+
+## Tracker Reconciliation Verification
+
+The reconciliation merge preserves the verified Platforms implementation and
+the Contacts + Resumes source modules on the tracker. The temporary database
+types now include `platforms`, `contacts`, and `resumes`, including their
+owner foreign-key relationship metadata. Static checks remain green; live
+Supabase CRUD, Storage, signed-URL, and RLS checks remain deferred until the
+project is provisioned.

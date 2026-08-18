@@ -271,3 +271,11 @@ Project-level learnings saved to Engram under `project=gestjobs`:
 5. PR 6 must add Vitest unit tests for `inferPlatformFromUrl` and
    `normalizeHostname` (I3). The drift check between `src/lib/platforms/seed.ts`
    and `supabase/seed.sql` should be the first test to land.
+
+## Tracker Reconciliation
+
+The Platforms slice was reconciled into `feature/gestjobs-mvp` after PR 2
+merged into the intermediate `feat/pr1-foundation` branch. The reconciliation
+commit preserves the Platforms source files and combines the temporary
+`platforms`, `contacts`, and `resumes` database table types. Contacts + Resumes
+remain represented by their implementation commits on the tracker branch.
