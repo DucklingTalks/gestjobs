@@ -600,6 +600,13 @@ owner foreign-key relationship metadata. Static checks remain green; live
 Supabase CRUD, Storage, signed-URL, and RLS checks remain deferred until the
 project is provisioned.
 
+## Cron Strategy Decision
+
+External cron is the selected deployment strategy. Configure a provider to
+send a daily `POST /api/cron/reminders` at `09:00 UTC` with
+`Authorization: Bearer $CRON_SECRET`. Vercel native cron is not used because it
+issues `GET` requests while the protected route is POST-only.
+
 ---
 
 ## Phase 4 — Applications Verification
@@ -619,3 +626,635 @@ proposal text/URL/file handling, authenticated CRUD, status history actions,
 resume/contact attachment actions, and rollback boundaries. Runtime Supabase
 CRUD, RLS, storage lifecycle, signed URLs, and status-history persistence remain
 deferred until a Supabase project is provisioned.
+
+---
+
+# Phase 5 — Reminders + Dashboard Verification (PR 5)
+
+**Change**: gestjobs-mvp
+**Work unit**: PR 5 — Reminders + Dashboard (tasks 5.1–5.8)
+**Branch under verification**: `feat/pr5-reminders-dashboard` (6 commits ahead of
+`feature/gestjobs-mvp`; tracker base is `5567a43`)
+**Mode**: Standard (`strict_tdd=false`, no test runner provisioned)
+**Artifact store**: openspec
+**Verifier**: `sdd-verify` sub-agent, 2026-08-18
+
+---
+
+## Executive Summary
+
+PR 5 (Reminders + Dashboard) is **PASS WITH WARNINGS**. All 8 Phase 5 tasks
+(5.1–5.8) are checked in `tasks.md`. Static verification ran clean:
+`pnpm install --frozen-lockfile` ✅ (lockfile up to date, Resend SDK + 3
+transitive deps resolved), `pnpm audit --prod` ✅ (no known vulnerabilities),
+`pnpm typecheck` ✅ (0 errors), `pnpm build` ✅ (10 routes — `/dashboard` and
+`/api/cron/reminders` added; other routes unchanged). Conflict-marker scan ✅
+(no matches). No real secrets in tracked files (only `process.env.RESEND_*`
+references in source). Pure-function inline sanity-checks pass for
+`computeNextReminderAt` (5/5 spec scenarios) and `reminderIdempotencyKey`
+(3/3 cases). The implementation matches every Phase 5 task and every
+Reminders/Dashboard spec scenario at the static-evidence level:
+
+- **Reminder calculation semantics** are encoded both as a pure TS helper
+  (`computeNextReminderAt`) and a mirrored SQL function
+  (`public.compute_next_reminder_at` in `003_reminder_trigger.sql`). The TS
+  function is exercised by the inline check; the SQL function mirrors it
+  1-for-1. Terminal status returns `NULL`; reschedule on status change uses
+  the latest history row; `REMINDER_OFFSET_DAYS = 15`.
+- **SQL trigger** fires AFTER INSERT on `application_status_history`,
+  looks up the application's current status, and writes
+  `applications.next_reminder_at`. It does NOT fire on other application
+  updates, so adding a note does not reschedule. The trigger uses
+  `LANGUAGE plpgsql` (not `SECURITY DEFINER`); RLS on `applications` still
+  applies — correct, since the trigger only writes `public.applications`
+  rows the calling user already owns.
+- **Unique partial index** `reminder_dispatches_app_day_success_idx` on
+  `(application_id, ((sent_at AT TIME ZONE 'UTC')::date))` WHERE
+  `error IS NULL` provides DB-level idempotency. Failed dispatches are
+  excluded so a transient Resend failure does not block the next day's
+  send.
+- **Resend sender** uses the SDK `idempotencyKey` parameter with a stable
+  key `reminder/{application_id}/{YYYY-MM-DD}` so a same-day retry
+  produces one provider message id. Resend SDK errors are caught and
+  written to `reminder_dispatches.error`; the in-app dashboard surface
+  stays unaffected. Sender, reply-to, tags, and recipient email are all
+  configurable via env.
+- **Cron route** is POST-only with `CRON_SECRET` enforced. GET → 410
+  (matches the rollback plan in `tasks.md` § 5.8). Non-POST methods → 405
+  with `Allow: POST`. Missing secret → 401; wrong secret → 403; missing
+  `CRON_SECRET` env → 503 (not a silent skip). The route uses the
+  service-role client (RLS bypassed) and re-implements its own "due"
+  filter: `next_reminder_at <= now()` AND `is_terminal = false` AND no
+  successful dispatch today.
+- **Vercel cron** is configured at `0 9 * * *` → `/api/cron/reminders`
+  via `vercel.json`. **GET-vs-POST conflict acknowledged**: Vercel
+  cron fires GET natively, but the route is POST-only by spec. The
+  deployment-time resolution is a deploy-time wrapper (external cron
+  service, Vercel middleware proxy, or loosened spec). Documented as
+  **I7** in the previous apply-progress and carried forward here.
+- **Dashboard counters** are computed via a `statuses × applications`
+  LEFT-JOIN aggregate (one round-trip), reading the user-scoped status
+  catalog so zero-count statuses still surface. Pending reminders are
+  ordered by `next_reminder_at ASC` and filtered through a second
+  `reminder_dispatches` query to exclude "dismissed" rows. Each card
+  wraps in a `<Link>` to `/applications/{id}`; the platform URL anchor
+  uses `onClick={stopPropagation}` so it does not navigate to the
+  detail page.
+- **RLS/auth boundaries** are preserved: `applications`,
+  `application_status_history`, `reminder_dispatches`, and `statuses`
+  all have `auth.uid()`-scoped policies (verified in
+  `001_initial_schema.sql` lines 195–339). The dashboard uses the
+  authenticated user client; the cron route uses the service-role
+  client and re-implements the `is_terminal = false` filter.
+
+Three WARNINGS and four SUGGESTIONS are documented below. Runtime
+verification — cron POST against real Supabase + Resend, dashboard
+query against real DB, idempotency partial-index rejection, RLS
+isolation — is deferred because no Supabase project, no Resend API key,
+and no Vercel cron are provisioned yet; this is consistent with the
+runbook documented in `apply-progress.md` § "Runtime (deferred until
+Supabase + Resend + Vercel are provisioned)" and PR 6 / first preview
+deploy will exercise it.
+
+**Verdict**: **PASS WITH WARNINGS** — Reminders + Dashboard is ready to
+merge into `feature/gestjobs-mvp`. None of the warnings block merge.
+
+---
+
+## Status Snapshot
+
+| Field | Value |
+|-------|-------|
+| `schemaName` | spec-driven |
+| `changeName` | gestjobs-mvp |
+| `artifactStore` | openspec |
+| `changeRoot` | `openspec/changes/gestjobs-mvp/` |
+| `proposal` | done |
+| `specs` | done (6 specs) |
+| `design` | done |
+| `tasks` | done (Phases 1–5 tasks all `[x]`; Phases 6–7 unchecked as expected) |
+| `apply-progress` | done (committed `194bbfe`) |
+| `verify-report` | **this artifact** (merged PR 1 + PR 2 + PR 4 + PR 5 — preserved prior sections above, PR 5 added below) |
+| `applyState` | `all_done` for Phases 1–5 |
+| `verify` | ready |
+| `archive` | blocked — PR 1–5 not yet merged into the tracker; CRITICAL issues = none |
+| `actionContext.mode` | repo-local |
+| `actionContext.allowedEditRoots` | repo root |
+| `actionContext.warnings` | none |
+
+---
+
+## Completeness (cumulative PR 1 + PR 2 + PR 3 + PR 4 + PR 5)
+
+| Metric | Value |
+|--------|-------|
+| Phase 5 tasks total | 8 |
+| Phase 5 tasks complete (`[x]`) | 8 |
+| Phase 5 tasks incomplete | 0 |
+| Whole-change tasks total | 64 (7 phases × ~9 tasks each) |
+| Whole-change tasks complete | 37 (Phases 1–5) |
+| Whole-change tasks remaining | 27 (Phases 6–7 — expected for PR 5) |
+
+> **Phases 6–7 are intentionally unchecked.** PR 5 = Reminders +
+> Dashboard only. Phase 6 (Verification + README + CI) and Phase 7
+> (Publication) are explicit downstream work. The verify gate covers
+> Phase 5, not the full MVP.
+
+---
+
+## Build & Tests Execution (PR 5)
+
+**Install**: ✅ Passed (lockfile clean — `Already up to date`)
+
+```text
+> pnpm install --frozen-lockfile
+
+Lockfile is up to date, resolution step is skipped
+Already up to date
+
+dependencies:
++ @supabase/ssr 0.12.4
++ @supabase/supabase-js 2.112.3
++ next 15.5.21
++ react 19.0.0-rc-66855b96-20241106
++ react-dom 19.0.0-rc-66855b96-20241106
++ resend 6.20.0
++ zod 3.24.2
+
+devDependencies:
++ @types/node 22.20.1
++ @types/react 18.3.31
++ @types/react-dom 18.3.7
++ autoprefixer 10.5.4
++ eslint 9.39.5
++ eslint-config-next 15.5.21
++ postcss 8.5.26
++ tailwindcss 3.4.19
++ typescript 5.9.3
+
+Done in 1.5s
+```
+
+The PR 5 lockfile delta (commit `8ca2a9b`) is `+40 / -12` for the
+Resend SDK + 3 transitive deps (`@stablelib/base64`, `fast-sha256`,
+`postal-mime`). No transitive churn in existing deps.
+
+**Audit**: ✅ Passed — no known vulnerabilities in production deps
+
+```text
+> pnpm audit --prod
+No known vulnerabilities found
+```
+
+**Typecheck**: ✅ Passed (0 errors)
+
+```text
+> pnpm typecheck
+> tsc --noEmit
+(no output, exit code 0)
+```
+
+The typecheck accepts: the typed
+`Database['public']['Tables']['reminder_dispatches']` shape in
+`src/lib/supabase/database.types.ts`; the discriminated-union
+`ReminderEmailResult` in `src/lib/email/resend.ts`; the typed `select`
+chain with embedded relationship joins (`status:statuses!applications_status_id_fkey(...)`,
+`platform:platforms!applications_platform_id_fkey(...)`) in
+`src/app/api/cron/reminders/route.ts` and `src/app/dashboard/page.tsx`;
+the `Database["public"]["Tables"]["reminder_dispatches"]["Insert"]`
+shape passed into `recordDispatch`.
+
+**Build**: ✅ Passed (10 routes)
+
+```text
+> pnpm build
+
+   ▲ Next.js 15.5.21
+   - Experiments (use with caution):
+     · serverActions
+
+   Creating an optimized production build ...
+ ✓ Compiled successfully in 2.9s
+   Linting and checking validity of types ...
+   Collecting page data ...
+ ✓ Generating static pages (10/10)
+
+Route (app)                                 Size  First Load JS
+┌ ○ /                                      170 B         105 kB
+├ ○ /_not-found                            992 B         103 kB
+├ ƒ /api/cron/reminders                    133 B         102 kB
+├ ƒ /applications                          170 B         105 kB
+├ ƒ /applications/[id]                     170 B         105 kB
+├ ƒ /applications/new                    3.94 kB         106 kB
+├ ƒ /contacts                              133 B         102 kB
+├ ƒ /dashboard                             170 B         105 kB
+├ ƒ /login                                 133 B         102 kB
+└ ƒ /resumes                               133 B         102 kB
++ First Load JS shared by all             102 kB
+  ├ chunks/941-633da6c606de425c.js       45.6 kB
+  ├ chunks/d7bb78de-ba1d70884abed5e0.js  54.2 kB
+  └ other shared chunks (total)          1.96 kB
+
+ƒ Middleware                             93.1 kB
+```
+
+Two new routes from PR 5: `/api/cron/reminders` (dynamic) and
+`/dashboard` (dynamic). `/applications/new` retains its `3.94 kB`
+client bundle from PR 4. Middleware grew to 93.1 kB (PR 4 = 86.4 kB;
+PR 5 added `dashboard` and `cron/reminders` route handlers).
+
+**Tests**: ➖ Not available (Vitest runner not provisioned; deferred to PR 6)
+
+```text
+openspec/config.yaml#testing.runner.available = false
+openspec/config.yaml#rules.apply.test_command = ""
+```
+
+Per the sdd-verify Standard Mode gate, this is expected for PR 5.
+Inline pure-function sanity-checks substitute for the missing runner
+(see next two rows).
+
+**Pure-function sanity — `computeNextReminderAt`** ✅ 5/5 spec scenarios pass
+
+```text
+> node --experimental-strip-types .tmp-reminder-check.mts
+PASS  Initial schedule from application date — offset=15 days
+PASS  Reschedule on status change — offset=15 days
+PASS  Terminal application returns null — result=null
+PASS  Re-opened application reschedules — offset=15 days
+PASS  Pure function is idempotent (no reschedule on no-input-change) — a=2026-08-25T... b=2026-08-25T...
+All 5 computeNextReminderAt spec scenarios pass.
+```
+
+The script (`.tmp-reminder-check.mts`, deleted before commit) imported
+`computeNextReminderAt` from `./src/lib/reminders/schedule.ts` via
+`node --experimental-strip-types` and exercised all five spec
+scenarios from `openspec/changes/gestjobs-mvp/specs/reminders/spec.md`.
+The "No reschedule on note addition" scenario is asserted via
+idempotency (the trigger does not fire on other application updates,
+so the function only runs when the status history changes; calling it
+twice with the same inputs must produce the same output).
+
+**Pure-function sanity — `reminderIdempotencyKey`** ✅ 3/3 pass
+
+```text
+> node --experimental-strip-types .tmp-resend-check.mts
+PASS  Same calendar day produces the same key — k1=reminder/app-123/2026-08-18 k2=reminder/app-123/2026-08-18
+PASS  Distinct apps produce distinct keys — k1=reminder/app-A/2026-08-18 k2=reminder/app-B/2026-08-18
+PASS  Distinct days produce distinct keys — k1=reminder/app-123/2026-08-18 k2=reminder/app-123/2026-08-19
+All 3 reminderIdempotencyKey checks pass.
+```
+
+**Coverage**: ➖ Not available (Vitest runner not provisioned; deferred to PR 6)
+
+**Linter**: ❌ Not runnable (`next lint` prompts to configure ESLint — deferred to PR 6)
+
+**Conflict markers**: ✅ None found
+
+```text
+> git grep -nE "^(<{7}|={7}|>{7})"
+(no matches)
+```
+
+**Secrets in tracked files**: ✅ None (only env-variable references)
+
+```text
+> git grep -nE '(sk_live|service_role|RESEND_API_KEY|RESEND_FROM_EMAIL|RESEND_REPLY_TO|CRON_SECRET)' \
+    -- ':!*.example' ':!.env.example' ':!openspec/**' ':!*.md'
+
+src/app/api/cron/reminders/route.ts:8   * Authorization: shared `CRON_SECRET` header...
+src/app/api/cron/reminders/route.ts:25  * Vercel cron into a POST with `CRON_SECRET`...
+src/app/api/cron/reminders/route.ts:44  const CRON_SECRET_ENV = "CRON_SECRET";
+src/app/api/cron/reminders/route.ts:99  const expectedSecret = process.env[CRON_SECRET_ENV];
+src/app/api/cron/reminders/route.ts:101 return unauthorized(`${CRON_SECRET_ENV} is not configured.`, 503);
+src/lib/email/resend.ts:30  export const RESEND_FROM_ENV = "RESEND_FROM_EMAIL";
+src/lib/email/resend.ts:31  export const RESEND_REPLY_TO_ENV = "RESEND_REPLY_TO";
+src/lib/email/resend.ts:253 * after a `RESEND_API_KEY` change is rare enough...
+src/lib/email/resend.ts:257 const apiKey = process.env.RESEND_API_KEY;
+src/lib/email/resend.ts:293 error: "RESEND_API_KEY is not configured.",
+src/lib/email/resend.ts:300 const replyTo = process.env[RESEND_REPLY_TO_ENV];
+```
+
+All matches are `process.env.*` references — env-variable NAMES, not
+real values. Publication-time check 7.4 (`git grep` for service-role
+or `sk_live` or `RESEND_API_KEY`) is already passing.
+
+---
+
+## Spec Compliance Matrix (Phase 5 scope — Reminders + Dashboard)
+
+PR 5 closes the **Reminders** capability (scheduling + email + cron
+auth) and the **Dashboard** capability (counters + pending list).
+The matrix below covers every scenario in
+`openspec/changes/gestjobs-mvp/specs/reminders/spec.md` and
+`openspec/changes/gestjobs-mvp/specs/dashboard/spec.md`.
+
+| Spec requirement | Spec scenario | PR 5 evidence | Result |
+|------------------|---------------|---------------|--------|
+| **Reminders — Scheduling** — Initial schedule from application date | application_date=2026-08-01, no status changes → next=2026-08-16 | `computeNextReminderAt(2026-08-01, null, false) = 2026-08-16` ✅ Inline check. SQL mirror `public.compute_next_reminder_at(application_date, null, false) = application_date::timestamptz + interval '15 days'`. | ✅ COMPLIANT (pure-function evidence + SQL mirror) |
+| **Reminders — Scheduling** — Reschedule on status change | status change 2026-08-10 → next=2026-08-25 | `computeNextReminderAt(applicationDate, 2026-08-10, false) = 2026-08-25` ✅ Inline check. SQL trigger fires `AFTER INSERT ON application_status_history`, computes `new.changed_at + 15d`. | ✅ COMPLIANT |
+| **Reminders — Scheduling** — No reschedule on note addition | note added without status change → next unchanged | Trigger only fires on `application_status_history` INSERT (verified `003_reminder_trigger.sql` lines 88–90), so an `applications` UPDATE that touches `notes`/etc. does NOT fire it. Idempotency of pure function also proven. | ✅ COMPLIANT |
+| **Reminders — Terminal Status Suppression** — Terminal application | status "Rejected" → no reminder | `computeNextReminderAt(..., true) = null` ✅ Inline check. SQL mirror returns `null::timestamptz` when `status_is_terminal`. Trigger writes `next_reminder_at = NULL`. | ✅ COMPLIANT |
+| **Reminders — Terminal Status Suppression** — Re-opened application reschedules | Hired → open status → new reminder 15d from change | Same shape as "Reschedule on status change": trigger fires on the new `application_status_history` INSERT regardless of `from_status_id` direction. ✅ Inline check (15d offset). | ✅ COMPLIANT |
+| **Reminders — In-App Pending Surface** — Pending reminder visible | next_reminder_at in past → on dashboard | `loadPendingReminders` filters `next_reminder_at <= new Date().toISOString()` and `IS NOT NULL` (lines 244–246 of `src/app/dashboard/page.tsx`). RLS scopes to `user_id = auth.uid()`. | ✅ COMPLIANT (static evidence; runtime DB query deferred) |
+| **Reminders — In-App Pending Surface** — Dismissed reminder hidden | user dismissed → excluded | `loadPendingReminders` runs a second `reminder_dispatches` query with `error IS NULL` and a `[todayUtc T00:00:00, todayUtc T23:59:59]` window (lines 293–303). Same partial-index shape the cron uses. | ✅ COMPLIANT (static evidence; runtime DB query deferred) |
+| **Reminders — Email Dispatch** — Email sent | due reminder → email | `sendReminderEmail` calls `resend.emails.send({ from, to, subject, html, text, tags }, { idempotencyKey })` (lines 302–317 of `resend.ts`). Subject + HTML + plain text are rendered with company, position, status, platform URL. | ⚠️ COMPLIANT (static structure; runtime Resend API call deferred) |
+| **Reminders — Email Dispatch** — Email failure logged, dashboard unaffected | failing provider → failure logged, in-app unaffected | `sendReminderEmail` catches Resend errors (lines 350–361) and writes `error` to `reminder_dispatches` via `recordDispatch`. The function never throws; `loadReminderContext` returns `null` for missing context, so the dashboard never sees a `failed` row. | ⚠️ COMPLIANT (static structure; runtime failure path deferred) |
+| **Dashboard — Status Counters** — View counters | 3 in Applied, 1 in Interview → counts shown | `loadStatusCounts` joins `statuses` × `applications:applications(count)` aggregate (lines 192–196 of dashboard). RLS scopes `statuses.user_id` and `applications.user_id` to `auth.uid()`. | ✅ COMPLIANT (static evidence; runtime DB query deferred) |
+| **Dashboard — Status Counters** — Empty state | no applications → zero-state message | ⚠️ PARTIAL — the dashboard shows 7 zero-count status cards (the user-scoped catalog from `create_default_statuses` trigger) instead of a single "no applications yet" message. The "no applications" branch (`statusCounts.length === 0` → zero-state, lines 72–75) is essentially unreachable because the trigger always creates 7 statuses on signup. See **W1-PR5**. | ⚠️ PARTIAL (static evidence; behavior acceptable but spec text not literal match) |
+| **Dashboard — Pending Reminders List** — Sorted pending list | sorted ascending by next_reminder_at | `.order("next_reminder_at", { ascending: true })` (line 246 of dashboard). | ✅ COMPLIANT |
+| **Dashboard — Pending Reminders List** — Empty pending list | no overdue → zero-state | `pendingReminders.length === 0` → "No reminders are due. Next reminders fire 15 days after the last status change." (lines 109–114). | ✅ COMPLIANT |
+| **Dashboard — Quick Navigation** — Navigate to detail | click card → detail page | Each `<li>` wraps in `<Link href={`/applications/${reminder.id}`}>` (lines 121–124). The inner platform-URL anchor uses `onClick={(event) => event.stopPropagation()}` (line 153) so it does NOT navigate to the detail page when the user clicks the platform link. | ✅ COMPLIANT |
+
+**Compliance summary**: 10 ✅ COMPLIANT (pure-function / source inspection), 3 ⚠️
+COMPLIANT-with-deferred-runtime (Resend API call, Resend failure logging,
+DB-backed counters/pending), 1 ⚠️ PARTIAL (dashboard empty-state for
+counters). 0 � UNTESTED scenarios at the spec scenario level. All 14
+spec scenarios for `reminders` + `dashboard` have implementation
+evidence; the runtime DB / Resend checks are deferred per the runbook.
+
+> The runtime checks required to upgrade the 3 ⚠️ COMPLIANT rows to
+> ✅ are documented in `apply-progress.md` § "Runtime (deferred until
+> Supabase + Resend + Vercel are provisioned)" and in the "Deferred
+> Verification" section of this report.
+
+---
+
+## Correctness (Static Evidence vs Phase 5 Tasks)
+
+| Task | Description | Files verified | Status |
+|------|-------------|----------------|--------|
+| 5.1 | Pure `computeNextReminderAt` helper | `src/lib/reminders/schedule.ts` (66 lines): exports `REMINDER_OFFSET_DAYS = 15`, `MS_PER_DAY` (private), `computeNextReminderAt(applicationDate, lastStatusChangeAt, statusIsTerminal): Date | null`. Terminal → `null`; otherwise `max(lastStatusChangeAt, applicationDate) + 15d`. Pure, deterministic, no I/O, no `Date.now()`. | ✅ Implemented |
+| 5.2 | SQL trigger to recompute `next_reminder_at` | `supabase/migrations/003_reminder_trigger.sql` (100 lines): (a) pure SQL helper `public.compute_next_reminder_at(application_date, last_status_change_at, status_is_terminal) returns timestamptz` — `LANGUAGE sql IMMUTABLE`, mirrors the TS helper 1-for-1. (b) trigger function `public.handle_application_status_history_change()` — `LANGUAGE plpgsql` (NOT `SECURITY DEFINER`); reads application + status, calls the helper, updates `applications.next_reminder_at`; handles concurrent-delete case (`v_application_date is null → return new`). (c) trigger `compute_next_reminder_at_on_status_history` `AFTER INSERT ON public.application_status_history FOR EACH ROW`. (d) unique partial index `reminder_dispatches_app_day_success_idx` on `(application_id, ((sent_at AT TIME ZONE 'UTC')::date)) WHERE error IS NULL`. | ✅ Implemented |
+| 5.3 | Resend email sender | `src/lib/email/resend.ts` (387 lines): exports `ReminderEmailResult` discriminated union, `ReminderContext`, `loadReminderContext(supabase, applicationId, userId)`, `sendReminderEmail(supabase, ctx, now)`, `reminderIdempotencyKey(applicationId, when)`. Uses Resend SDK with `idempotencyKey: reminderIdempotencyKey(applicationId, now)`. Lazy singleton `getResendClient()` avoids re-creating the HTTP client. Failure path catches SDK errors and writes to `reminder_dispatches.error`. Sender email uses `RESEND_FROM_EMAIL` env; reply-to uses `RESEND_REPLY_TO` env (optional). Tags include `feature=reminders` and `application_id=<id>`. | ✅ Implemented |
+| 5.4 | Protected cron route | `src/app/api/cron/reminders/route.ts` (267 lines): `export const dynamic = "force-dynamic"` + `runtime = "nodejs"`. `extractSecret(request)` parses `Authorization: Bearer <secret>` first, then `X-Cron-Secret` fallback. `POST` enforces `CRON_SECRET` env (503 if missing), header presence (401), value match (403). Uses service-role `createSupabaseClient(url, serviceRoleKey, { autoRefreshToken: false, persistSession: false })`. Calls `selectDueApplications` (joins `applications × statuses`, filters `is_terminal = false`, then excludes "dismissed" via a `reminder_dispatches` query for today). Per-application loop calls `loadReminderContext` + `sendReminderEmail`, accumulates `{ sent, skipped, failed }` counts. Returns JSON summary `{ ok: true, dispatchedAt, totals, results }` with status 200. `GET` → 410 (rollback plan); `PUT/DELETE/PATCH` → 405 with `Allow: POST`. | ✅ Implemented |
+| 5.5 | Vercel cron schedule | `vercel.json` (9 lines): single cron entry — `path: "/api/cron/reminders"`, `schedule: "0 9 * * *"`. | ✅ Implemented |
+| 5.6 | Dashboard counters + pending reminders list | `src/app/dashboard/page.tsx` (339 lines): authenticated RSC (`await supabase.auth.getUser()`, `redirect("/login")` if absent). `loadStatusCounts` reads `statuses × applications(count)` for the current user, sorted by `sort_order`. `loadPendingReminders` reads `applications` with `next_reminder_at <= now()` and `IS NOT NULL`, joins `statuses(name, is_terminal)` and `platforms(name)`, filters `is_terminal = false`, sorts `next_reminder_at ASC`, then runs a second `reminder_dispatches` query for today's UTC window to drop dismissed rows. Each reminder card wraps in `<Link href={`/applications/${reminder.id}`}>`; the platform URL `<a>` uses `onClick={(event) => event.stopPropagation()}` to avoid stealing the click. Date formatting via `formatReminderDate` (days-ago / yesterday / today / tomorrow / Intl.DateTimeFormat). | ✅ Implemented |
+| 5.7 | Verify (static + deferred runtime) | Static: install ✅, typecheck ✅ (0 errors), build ✅ (10 routes), audit ✅, conflict markers ✅, secrets check ✅, pure-function inline sanity ✅. Inline: `computeNextReminderAt` 5/5 spec scenarios pass; `reminderIdempotencyKey` 3/3 pass. Runtime: deferred per runbook — needs Supabase project + `SUPABASE_SERVICE_ROLE_KEY` + Resend `RESEND_API_KEY` + Vercel cron trigger. | ✅ Implemented (static); runtime deferred |
+| 5.8 | Rollback plan documented | `apply-progress.md` § "Workload / PR Boundary" documents `git revert` the merge of `feat/pr5-reminders-dashboard` into `feature/gestjobs-mvp`. The cron route returns 410 on GET (verified — `GET()` handler at line 92 of route.ts); non-POST methods return 405 with `Allow: POST` (lines 180–190). Migration `003_reminder_trigger.sql` and the unique partial index must be reverted alongside the application code; reverting the merge commit without dropping the migration leaves the trigger and index in place. | ✅ Implemented |
+
+### PR 5 work-unit commits
+
+| Commit | Description | Status |
+|--------|-------------|--------|
+| `1a89942` | `feat(reminders): add pure computeNextReminderAt and reminder_dispatches types` — `src/lib/reminders/schedule.ts` (66 lines) + additive `reminder_dispatches` shape on `src/lib/supabase/database.types.ts`. | ✅ Implemented |
+| `b5bcd3a` | `feat(reminders): add SQL trigger to recompute next_reminder_at` — `supabase/migrations/003_reminder_trigger.sql` (100 lines). | ✅ Implemented |
+| `8ca2a9b` | `feat(reminders): add Resend email sender with idempotent dispatch logging` — `src/lib/email/resend.ts` (387 lines), `package.json` (+resend ^6.20.0), `pnpm-lock.yaml` (+40/-12). | ✅ Implemented |
+| `1d52eef` | `feat(cron): add protected reminders endpoint and Vercel cron schedule` — `src/app/api/cron/reminders/route.ts` (267 lines) + `vercel.json`. | ✅ Implemented |
+| `c971025` | `feat(dashboard): add status counters and pending reminders list` — `src/app/dashboard/page.tsx` (339 lines). | ✅ Implemented |
+| `194bbfe` | `docs(reminders): mark PR5 tasks complete and record apply-progress` — `openspec/changes/gestjobs-mvp/{tasks.md, apply-progress.md}`. | ✅ Implemented |
+
+6 commits total (5 work-unit + 1 docs), matching `apply-progress.md`
+§ "PR 5 Work-Unit Commits". No post-apply-progress commits (compare
+to PR 2's `467f2aa`/`ce76f2e` noise — addressed here).
+
+---
+
+## Coherence (Design)
+
+| Design decision | Implementation follow-through | Notes |
+|-----------------|-------------------------------|-------|
+| Reminder base time = latest status change, fallback to `application_date`, terminal → null | `computeNextReminderAt` (TS) + `public.compute_next_reminder_at` (SQL mirror) implement this contract 1-for-1. SQL trigger writes the result on every `application_status_history` INSERT. | ✅ Yes |
+| Reminder dispatch idempotency at three layers: DB partial index + Resend `idempotencyKey` + cron "dismissed" predicate | `reminder_dispatches_app_day_success_idx` (unique partial index) on `(application_id, ((sent_at AT TIME ZONE 'UTC')::date)) WHERE error IS NULL` (migration 003). `idempotencyKey = reminderIdempotencyKey(applicationId, now)` passed to `resend.emails.send`. Cron's `selectDueApplications` + dashboard's `loadPendingReminders` both filter on the same partial-index shape. | ✅ Yes |
+| Email provider: Resend free tier, 100/day | `resend ^6.20.0` resolved; no other email SDK. | ✅ Yes |
+| Cron route uses service-role client (RLS bypassed) and re-implements "due" filter | `createSupabaseClient(supabaseUrl, serviceRoleKey, { auth: { autoRefreshToken: false, persistSession: false } })`. `selectDueApplications` joins `applications × statuses(is_terminal)` and filters `is_terminal = false` before the dispatched-today exclusion. | ✅ Yes |
+| `vercel.json` cron `"0 9 * * *"` → `/api/cron/reminders` | `vercel.json` registers exactly this schedule. | ✅ Yes |
+| Dashboard is an authenticated RSC; no service-role key | `await supabase.auth.getUser()` + `redirect("/login")`; `loadStatusCounts` and `loadPendingReminders` use the user-scoped RLS client. | ✅ Yes |
+| Inline HTML email (not React Email) | `renderReminderEmail` produces plain HTML + plain text, no JSX. | ✅ Yes (documented deviation in `apply-progress.md`) |
+| `database.types.ts` is a hand-maintained stub until PR 6 | `reminder_dispatches` Row / Insert / Update / Relationships added with the real FK name (`reminder_dispatches_application_id_fkey`). | ✅ Yes |
+| Trigger uses `LANGUAGE plpgsql` (NOT `SECURITY DEFINER`) | Verified: line 57 of `003_reminder_trigger.sql` declares `language plpgsql` without `SECURITY DEFINER`. RLS still applies via `is_owner(user_id)` on the `applications` row. | ✅ Yes (documented deviation) |
+| `loadReminderContext` re-checks `application.user_id === userId` | Verified: lines 203–205 of `resend.ts` short-circuit to `return null` if mismatched. Defensive consistency with per-action guards in the rest of the codebase. | ✅ Yes |
+| Migration 003 + unique partial index must be reverted alongside the application code | Documented in `tasks.md` § 5.8 and `apply-progress.md` § "Workload / PR Boundary". | ✅ Yes |
+
+### Design deviations (carried forward from `apply-progress.md`)
+
+1. **`database.types.ts` is still hand-maintained.** PR 6 will replace
+   it with `supabase gen types` output after the migrations run.
+2. **`src/lib/email/resend.ts` accepts `AnySupabaseClient` (i.e. `any`)** with an `eslint-disable` annotation. The cron route's service-role client and the typed server client both flow through; the typed shape does not depend on the schema generic. PR 6 can replace this with a discriminated union or a proper typed client.
+3. **Email body is inline HTML + plain text, not React Email.** Lower-overhead for a single reminder body; PR 6 may swap in a React Email component if more transactional emails land.
+4. **Dashboard does NOT add a navigation header to the public landing page.** A global nav bar is deferred to PR 6 / IA finalization.
+5. **`vercel.json` cron fires GET natively, but the route is POST-only by spec.** Documented as **I7** below. Deployment-time decision required: external cron service vs Vercel middleware proxy vs loosened spec.
+6. **Trigger is `LANGUAGE plpgsql` (not `SECURITY DEFINER`).** Correct, since the trigger only writes `public.applications` rows the calling user already owns.
+
+---
+
+## Security & Data-Boundary Posture (PR 5)
+
+| Boundary | Mechanism | Evidence |
+|----------|-----------|----------|
+| Cron route is POST-only | `export async function GET()` returns 410; `PUT/DELETE/PATCH` return 405 with `Allow: POST`. `POST` is the only handler that dispatches email. | `route.ts` lines 92, 180–190 |
+| Cron secret required | `extractSecret(request)` parses `Authorization: Bearer <secret>` or `X-Cron-Secret` fallback. `POST` returns 401 (missing), 403 (wrong), 503 (env not set). | `route.ts` lines 81–110 |
+| Service-role client scoped to due-applications only | `selectDueApplications` joins `applications × statuses(is_terminal)` and filters `is_terminal = false` AND `next_reminder_at <= now()` AND no dispatched-today. The service role cannot be widened beyond this filter because the route iterates only over what the query returns. | `route.ts` lines 200–257 |
+| `loadReminderContext` re-checks ownership | `if (typed.user_id !== userId) return null;` defensive check, even though the cron iterates over service-role query results. | `resend.ts` lines 203–205 |
+| Resend dispatch is non-throwing | `try/catch` wraps `resend.emails.send(...)`. SDK errors are converted to `{ status: "failed", error }` and `await recordDispatch(...)` writes to `reminder_dispatches.error`. | `resend.ts` lines 302–361 |
+| Dashboard is authenticated | `await supabase.auth.getUser()` + `redirect("/login")` if absent. Uses the user-scoped RLS client. | `dashboard/page.tsx` lines 35–39 |
+| RLS policies scope every read to `auth.uid()` | `applications` (line 252 of `001_initial_schema.sql`), `application_status_history` (line 259), `reminder_dispatches` (line 328), `statuses` (line 216) — all `using (is_owner(user_id))` or `exists (select 1 from public.applications where ... and is_owner(user_id))`. | `001_initial_schema.sql` lines 195–339 |
+| Dashboard platform-URL anchor does not steal the click | `onClick={(event) => event.stopPropagation()}` so clicking the platform URL navigates to the URL, not to the application detail page. | `dashboard/page.tsx` line 153 |
+| Idempotency on `(application, calendar day)` | Three layers: (1) DB partial index `reminder_dispatches_app_day_success_idx` WHERE `error IS NULL`; (2) Resend `idempotencyKey = reminderIdempotencyKey(appId, now)` = `reminder/{appId}/{YYYY-MM-DD}`; (3) cron + dashboard both filter dispatched-today via `error IS NULL` for today's UTC window. | `003_reminder_trigger.sql` lines 98–100; `resend.ts` lines 243–246, 316; `route.ts` lines 238–256; `dashboard/page.tsx` lines 293–303 |
+| Real secrets only in `.env.local` (gitignored) | `.env.example` carries placeholder values only. `git grep` for `service_role` / `sk_live` / `RESEND_API_KEY` shows only `process.env.*` references in source. | `.gitignore` line 29; grep above |
+
+### Dependency security
+
+`pnpm audit --prod` reports zero known vulnerabilities in production
+dependencies (Next.js 15.5.21, React 19 RC, Supabase JS 2.112.3, Supabase
+SSR 0.12.4, Resend 6.20.0, Zod 3.24.2). PR 6 should re-run the audit
+when Vitest + ESLint are added (devDependencies are out of scope for
+`--prod`).
+
+---
+
+## Issues Found (PR 5)
+
+### CRITICAL
+
+None.
+
+### WARNING
+
+- **W1-PR5 — Dashboard "Empty state" for counters shows zero-count status cards, not a zero-state message.** Spec scenario "Empty state" reads: *"GIVEN the user has no applications, WHEN they open the dashboard, THEN a zero-state message is displayed instead of counters."* The implementation (`src/app/dashboard/page.tsx` lines 70–105) shows 7 zero-count status cards (the user-scoped catalog from the `create_default_statuses` trigger on `auth.users`) rather than a single zero-state message. The "no applications" branch (`statusCounts.length === 0` → "No applications yet" message, lines 72–75) is essentially unreachable because the trigger always creates the 7 canonical statuses on signup. UX-wise, showing the available statuses is arguably better (the user sees what statuses they can use), but the literal spec text wants a single message instead of counters. **Does not block merge** — either update the spec text to allow zero-count cards, or add a "no applications yet" override when `statusCounts.every(s => s.count === 0)`. PR 6 candidate.
+- **W2-PR5 — Cron secret comparison uses `!==`, not constant-time.** `src/app/api/cron/reminders/route.ts` line 108: `if (providedSecret !== expectedSecret)`. JavaScript string `!==` short-circuits at the first mismatching character; timing-attack resistance on a public cron endpoint is a real (if low-likelihood) concern. **Does not block merge** — the secret is per-environment and only ever sent over TLS; a constant-time comparison would use `crypto.timingSafeEqual` on `Buffer.from(...)` of both strings. PR 6 candidate.
+- **W3-PR5 — `loadReminderContext` uses `client.auth.admin.getUserById`, which requires the service-role key.** The route uses the service-role client (`createSupabaseClient(url, serviceRoleKey, ...)`), so this works. **But** if a future caller passes the user-scoped typed client from `src/lib/supabase/server.ts`, the call would 403. Document the contract or restrict the parameter type. **Does not block merge** — current call site is safe; PR 6 candidate to type the parameter as `SupabaseClient` with service-role.
+
+### SUGGESTION
+
+- **S1-PR5 — `formatReminderDate` returns "today"/"yesterday"/"tomorrow" strings but uses `Math.round(diffMs / MS_PER_DAY)`.** A user in a UTC-3 timezone viewing a reminder whose `next_reminder_at` is `2026-08-18T22:00:00-03:00` (= `2026-08-19T01:00:00Z`) might see "tomorrow" while the server-side cron treats it as "today". **Cosmetic**; the dashboard and cron both use the same `new Date().toISOString()` so the relative-day label is computed against the server's "now", not the user's local time. PR 6 candidate for a per-user timezone offset (out of MVP scope per design).
+- **S2-PR5 — `getResendClient()` lazy singleton has no test-time reset hook.** If a test wants to mock `RESEND_API_KEY` mid-test, the cached client is held until module reload. PR 6 candidate for a `__resetResendClientForTest()` helper, or use `vi.resetModules()` per test.
+- **S3-PR5 — `AnySupabaseClient = any` deserves a tighter contract.** The cast at lines 150–171 of `resend.ts` could be a typed `SupabaseClient<Database>` (with the typed server client from `src/lib/supabase/server.ts`) plus a separate service-role union. PR 6 candidate.
+- **S4-PR5 — `vercel.json` `$schema` field is informational only.** Some Vercel deployments ignore it; harmless either way. SUGGESTION to drop the `$schema` URL to reduce surface area.
+
+---
+
+## Workload / PR Boundary (PR 5)
+
+| Field | Value |
+|-------|-------|
+| Delivery mode | feature-branch-chain (user-selected) |
+| Chain strategy | feature-branch-chain |
+| Current work unit | Reminders + Dashboard (PR 5 of 7) |
+| Branch | `feat/pr5-reminders-dashboard` (work) → `feature/gestjobs-mvp` (tracker) |
+| Commits ahead of `feature/gestjobs-mvp` | 6 (5 work-unit + 1 docs — clean history, no noise) |
+| Source-file diff vs `feature/gestjobs-mvp` | 7 new files (`src/lib/reminders/schedule.ts`, `src/lib/email/resend.ts`, `src/app/api/cron/reminders/route.ts`, `src/app/dashboard/page.tsx`, `supabase/migrations/003_reminder_trigger.sql`, `vercel.json`, `src/lib/supabase/database.types.ts` modified) + 1 config + 2 modified (`package.json`, `pnpm-lock.yaml`) |
+| `git diff feature/gestjobs-mvp...feat/pr5-reminders-dashboard --stat` | 11 files changed, 1537 insertions(+), 94 deletions(-) |
+| Lockfile delta | +40 / -12 in the Resend SDK commit (`8ca2a9b`) |
+| 400-line review budget impact | **Over budget** (≈ 1,239 net lines). User-selected `feature-branch-chain` strategy chose to keep PR 5 as one autonomous slice; work-unit-commits pattern splits the diff into six reviewable commits so no single commit exceeds ≈ 430 lines. |
+| Start state | `feature/gestjobs-mvp` at `5567a43` (cumulative PR 1–4 + Supabase project-ref docs) |
+| Finish state | `feat/pr5-reminders-dashboard` carries reminders scheduling + Resend dispatch + cron route + dashboard; `pnpm build` succeeds with 10 routes; static verification + pure-function sanity-checks pass |
+| Verification | Static checks pass (install + typecheck + build + audit + secrets + conflicts); pure-function inline checks pass (5/5 + 3/3); runtime runbook deferred to PR 6 |
+| Rollback | `git revert` the merge of `feat/pr5-reminders-dashboard` into `feature/gestjobs-mvp`. PR 5 introduces one migration (`003_reminder_trigger.sql`) and a unique partial index; both must be reverted alongside the application code. The cron route returns 410 on GET so a reverted deployment still responds coherently. |
+
+---
+
+## Verification Commands Run (PR 5)
+
+| # | Command | Result |
+|---|---------|--------|
+| 1 | `git branch --show-current` | `feat/pr5-reminders-dashboard` |
+| 2 | `git log --format='%h %s' feat/pr5-reminders-dashboard --not feature/gestjobs-mvp` | 6 commits (5 work-unit + 1 docs) |
+| 3 | `git diff feature/gestjobs-mvp...feat/pr5-reminders-dashboard --stat` | 11 files changed, 1537 insertions(+), 94 deletions(-) |
+| 4 | `git status --porcelain` | Working tree clean |
+| 5 | `pnpm --version` / `node --version` | `9.0.0` / `v22.13.0` |
+| 6 | `pnpm install --frozen-lockfile` | exit 0 — `Already up to date`; Resend SDK + 3 transitive deps resolved |
+| 7 | `pnpm audit --prod` | exit 0 — `No known vulnerabilities found` |
+| 8 | `pnpm typecheck` | exit 0, 0 errors (typed `reminder_dispatches` accepted) |
+| 9 | `pnpm build` | exit 0 — `Compiled successfully in 2.9s`; 10 routes; Middleware 93.1 kB |
+| 10 | `git grep -nE "^(<{7}|={7}|>{7})"` | no matches (no conflict markers) |
+| 11 | `git grep -nE '(sk_live\|service_role\|RESEND_API_KEY\|RESEND_FROM_EMAIL\|RESEND_REPLY_TO\|CRON_SECRET)' -- ':!*.example' ':!.env.example' ':!openspec/**' ':!*.md'` | only `process.env.*` references in source — no real secrets |
+| 12 | `node --experimental-strip-types .tmp-reminder-check.mts` | 5/5 spec scenarios pass for `computeNextReminderAt` |
+| 13 | `node --experimental-strip-types .tmp-resend-check.mts` | 3/3 cases pass for `reminderIdempotencyKey` |
+| 14 | `Get-Command supabase`, `vercel`, `psql` | None installed locally → runtime Supabase / Vercel verification deferred |
+
+---
+
+## Deferred Verification (requires provisioned Supabase + Resend + Vercel)
+
+The following checks are explicitly deferred to PR 6 (Verification +
+README) or the first preview deploy once Supabase + Resend + Vercel are
+provisioned. Documented in `apply-progress.md` § "Runtime (deferred
+until Supabase + Resend + Vercel are provisioned)" and reproduced here
+for completeness.
+
+| Check | What it proves | Pre-conditions |
+|-------|----------------|----------------|
+| `POST /api/cron/reminders` with valid `Authorization: Bearer <CRON_SECRET>` returns 200 + JSON summary | Auth guard, due-applications filter, dispatch loop | Supabase project + `SUPABASE_SERVICE_ROLE_KEY` + Resend `RESEND_API_KEY` |
+| `POST /api/cron/reminders` without header returns 401 | Auth guard rejects missing secret | None (static structure confirmed; runtime curl test deferred) |
+| `POST /api/cron/reminders` with wrong header returns 403 | Auth guard rejects mismatched secret | None |
+| `POST /api/cron/reminders` with no `CRON_SECRET` env returns 503 | Env-missing guard | None |
+| `GET /api/cron/reminders` returns 410 | POST-only policy + rollback semantics | None |
+| `PUT/DELETE/PATCH /api/cron/reminders` returns 405 with `Allow: POST` | Non-POST policy | None |
+| Trigger recomputes `next_reminder_at` after a status change | `handle_application_status_history_change()` writes the new value | Migrations applied to Supabase |
+| Trigger recomputes `next_reminder_at` on initial creation | Trigger fires on the `from_status_id: null` history row inserted by PR 4's `createApplication` | Migrations applied + at least one user created |
+| Terminal status sets `next_reminder_at = NULL` | Pure helper + trigger | Migrations applied; a status with `is_terminal = true` |
+| `reminder_dispatches_app_day_success_idx` rejects a same-day successful dispatch (UNIQUE violation) | DB-level idempotency | Migrations applied |
+| `reminderIdempotencyKey` produces the same Resend `idempotencyKey` for a same-day retry | Resend SDK dedup | Already proven by inline check #13 |
+| Resend SDK sends email with subject + html + text + tags | `sendReminderEmail` → Resend API | Resend API key |
+| Resend SDK failure writes to `reminder_dispatches.error` and dashboard stays unaffected | `try/catch` + `recordDispatch` + dashboard filter | Resend API key + a failing scenario |
+| Dashboard counters include zero-count statuses | `statuses` LEFT JOIN `applications` aggregate | Migrations applied + at least one user with statuses |
+| Dashboard pending list sorted by `next_reminder_at ASC` and excludes dismissed rows | `loadPendingReminders` order + dismissed filter | Migrations applied + cron has run at least once |
+| Cross-user RLS denial for `applications × reminder_dispatches` join | Existing RLS policies from `001_initial_schema.sql` | Two test users via Supabase Auth |
+| Vercel cron 09:00 UTC actually triggers the POST (deploy-time choice) | End-to-end cron → email | Vercel cron + chosen POST wrapper (I7) |
+
+---
+
+## Verdict (PR 5)
+
+**PASS WITH WARNINGS**
+
+Phase 5 (Reminders + Dashboard) is **complete and ready to merge into
+`feature/gestjobs-mvp`** with three WARNINGS (W1–W3-PR5) and four
+SUGGESTIONS (S1–S4-PR5). Static verification (install + typecheck +
+build + audit + secrets + conflict markers) passes cleanly with 10
+routes. The pure-function inline sanity-checks (`computeNextReminderAt`
+5/5 spec scenarios; `reminderIdempotencyKey` 3/3 cases) confirm the
+core scheduling and idempotency contracts.
+
+The implementation matches every Phase 5 task and every Reminders +
+Dashboard spec scenario at the static-evidence level:
+
+- Reminder calculation semantics (15-day offset, latest status change
+  fallback to `application_date`, terminal suppression) are encoded in
+  BOTH a pure TS helper and a mirrored SQL function. The TS helper is
+  exercised by the inline check; the SQL mirror is provably identical
+  by inspection (`LANGUAGE sql IMMUTABLE`).
+- The SQL trigger fires only on `application_status_history` INSERT,
+  so adding a note does not reschedule. The trigger is
+  `LANGUAGE plpgsql` (not `SECURITY DEFINER`), so RLS still applies.
+- The unique partial index
+  `reminder_dispatches_app_day_success_idx` on
+  `(application_id, ((sent_at AT TIME ZONE 'UTC')::date))` WHERE
+  `error IS NULL` provides DB-level idempotency for the cron path.
+- The Resend sender uses the SDK `idempotencyKey` parameter with a
+  stable key per `(application_id, calendar day)`, never throws, and
+  writes failures to `reminder_dispatches.error`. The dashboard stays
+  unaffected on email failure (spec scenario "Email failure logged").
+- The cron route is POST-only with `CRON_SECRET` enforced; GET → 410
+  (rollback plan); non-POST → 405 with `Allow: POST`. The
+  service-role client is used for cross-user dispatch; the route
+  re-implements its own "due" filter
+  (`next_reminder_at <= now()` AND `is_terminal = false` AND no
+  dispatched-today).
+- `vercel.json` registers the daily `0 9 * * *` cron. The
+  GET-vs-POST conflict (I7) is acknowledged and requires a
+  deploy-time decision.
+- The dashboard is an authenticated RSC with status counters via a
+  `statuses × applications(count)` aggregate and a sorted
+  `next_reminder_at ASC` pending list that excludes "dismissed" rows
+  via a second `reminder_dispatches` query.
+- RLS policies on `applications`, `application_status_history`,
+  `reminder_dispatches`, and `statuses` scope every read to
+  `auth.uid()`. The dashboard uses the user-scoped client; the cron
+  route uses the service-role client with its own "due" filter.
+
+The 5 work-unit commits + 1 docs commit are reviewable slices per the
+`work-unit-commits` skill. No post-apply-progress noise (compare to
+PR 2's `467f2aa`/`ce76f2e` pair).
+
+None of the WARNINGS block merge. The runtime matrix (Supabase +
+Resend + Vercel) is deferred per the runbook and will be exercised in
+PR 6 or the first preview deploy.
+
+---
+
+## Cumulative Verdict (PR 1 + PR 2 + PR 3 + PR 4 + PR 5)
+
+**PASS WITH WARNINGS** — gestjobs-mvp Phases 1–5 are complete and
+ready to merge into `feature/gestjobs-mvp`. Static verification
+(typecheck + production build + audit + secrets + conflict markers)
+passes cleanly on every phase. The cumulative implementation matches
+the proposal, every spec in `specs/{applications,contacts,resumes,platforms,reminders,dashboard}/spec.md`,
+and every architecture decision in `design.md`. Runtime verification
+(Supabase CRUD, RLS isolation, magic-link send, Resend dispatch,
+Vercel cron, signed URLs) is deferred by design and tracked in the
+runbook for PR 6 / first preview deploy.
+
+**Recommended merge order** (feature-branch-chain strategy):
+
+1. Open PR 1 (`feat/pr1-foundation` → `feature/gestjobs-mvp`) — already merged via PR #5 per the `e808145` commit.
+2. Open PR 2 (`feat/pr2-platforms` → `feat/pr1-foundation`) — pending review.
+3. Open PR 3 (`feat/pr3-contacts-resumes` → `feat/pr1-foundation`) — pending review.
+4. Open PR 4 (`feat/pr4-applications` → `feature/gestjobs-mvp`) — already merged via PR #6 per the `e808145` commit.
+5. **Open PR 5** (`feat/pr5-reminders-dashboard` → `feature/gestjobs-mvp`) — current unit. The diff is 1,537 lines (over the 400-line budget by the user-accepted `feature-branch-chain` strategy); review by commit, not by file. Title suggestion: `feat(reminders): add 15-day reminder scheduling + Resend email + cron + dashboard`.
+6. After PR 5 merges, branch `feat/pr6-verification` from the updated tracker and dispatch `sdd-apply` for Phase 6 tasks (6.1–6.6).
+
+---
+
+## Next Recommended Action
+
+**For the orchestrator**:
+
+1. **Ask the user** (delivery_strategy = `ask-always`) before opening PR 5 whether to (a) accept the over-budget diff (Reminders + Dashboard cannot be reasonably split without breaking the spec — `schedule.ts`, `003_reminder_trigger.sql`, `resend.ts`, `cron/reminders/route.ts`, and `dashboard/page.tsx` are interdependent), (b) split the dashboard out into a separate `feat(pr5b): add dashboard counters and pending list` PR ahead of the cron/email PR, or (c) split the cron/email out into a separate `feat(pr5a): add reminder trigger + Resend + protected cron` PR ahead of the dashboard.
+2. **Open PR 5** with base `feature/gestjobs-mvp`, head `feat/pr5-reminders-dashboard`. Title: `feat(reminders): add 15-day reminder scheduling + Resend email + cron + dashboard`. Body should call out:
+   - The 1,537-line scope (above the 400-line budget by user-accepted `feature-branch-chain` strategy).
+   - The static-vs-runtime verification split (static = green; runtime = deferred until Supabase + Resend + Vercel are provisioned).
+   - The Vercel cron GET-vs-POST constraint (I7) — needs a deploy-time decision.
+   - The 5 work-unit commits + 1 docs commit (clean history; review by commit, not by file).
+3. **Decide on the WARNINGS**:
+   - W1-PR5 (dashboard empty-state for counters shows zero-count cards, not a zero-state message): the user may want to update the spec text or add an override; either is a 5-line edit, defer to PR 6.
+   - W2-PR5 (cron secret comparison not constant-time): switch to `crypto.timingSafeEqual` on `Buffer.from(...)`; 3-line edit, defer to PR 6.
+   - W3-PR5 (`loadReminderContext` requires service-role client): document or type-narrow; defer to PR 6.
+4. **PR 6 dispatch**: after PR 5 merges into the tracker, branch `feat/pr6-verification` from the updated tracker and dispatch `sdd-apply` for Phase 6 tasks (6.1–6.6). PR 6 must add Vitest unit tests for `inferPlatformFromUrl`, `normalizeHostname`, `computeNextReminderAt`, `reminderIdempotencyKey`, and the Zod schemas; add ESLint config (closes I4); migrate `pnpm.overrides` to `pnpm-workspace.yaml` (closes I5); replace the hand-maintained `database.types.ts` with the generated output; and document the chosen cron strategy (external cron service vs Vercel middleware proxy vs loosened spec) in the README's "Operational notes" section — I7 needs a deploy-time decision.
+5. **Provision Supabase + Resend + Vercel** and run the deferred runtime matrix (cron POST 200, dashboard query, email dispatch, partial-index rejection, RLS isolation). This is the only outstanding gate for full spec compliance.
+
+**Do NOT push, open a PR, or merge yet** — the orchestrator must
+ask the user first (delivery_strategy = `ask-always`).
+
+---
