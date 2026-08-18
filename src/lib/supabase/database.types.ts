@@ -58,6 +58,44 @@ export interface Database {
           },
         ];
       };
+      resumes: {
+        Row: {
+          id: string;
+          user_id: string;
+          label: string;
+          file_path: string;
+          file_hash: string;
+          file_size: number;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          label: string;
+          file_path: string;
+          file_hash: string;
+          file_size: number;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          label?: string;
+          file_path?: string;
+          file_hash?: string;
+          file_size?: number;
+          created_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "resumes_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: false;
+            referencedRelation: "users";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
     };
     Views: Record<string, never>;
     Functions: Record<string, never>;
