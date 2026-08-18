@@ -83,9 +83,10 @@ export function normalizeHostname(input: string): string {
  *
  * Match strategy (most specific wins):
  *   1. Exact hostname match (`boards.greenhouse.io` -> "Greenhouse").
- *   2. Suffix match — strips the leftmost label(s) and re-tries. Lets
- *      `jobs.lever.co` resolve to a platform registered as `lever.co`,
- *      which is common for ATS providers that run many subdomains.
+ *   2. Suffix match — strips the leftmost label(s) and retries. This lets a
+ *      deeper hostname such as `uy.computrabajo.com.uy` resolve to a platform
+ *      registered as `computrabajo.com.uy`, which is common for regional ATS
+ *      subdomains.
  *
  * Returns `null` when:
  *   - The URL is invalid or non-HTTP(S) (graceful fallback for live typing).
