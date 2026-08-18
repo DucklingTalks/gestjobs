@@ -51,6 +51,54 @@ type PlatformUpdate = Partial<PlatformInsert>;
 export interface Database {
   public: {
     Tables: {
+      contacts: {
+        Row: {
+          id: string;
+          user_id: string;
+          name: string;
+          email: string | null;
+          phone: string | null;
+          linkedin_url: string | null;
+          notes: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          name: string;
+          email?: string | null;
+          phone?: string | null;
+          linkedin_url?: string | null;
+          notes?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["contacts"]["Insert"]>;
+        Relationships: [];
+      };
+      resumes: {
+        Row: {
+          id: string;
+          user_id: string;
+          label: string;
+          file_path: string;
+          file_hash: string;
+          file_size: number;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          label: string;
+          file_path: string;
+          file_hash: string;
+          file_size: number;
+          created_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["resumes"]["Insert"]>;
+        Relationships: [];
+      };
       platforms: {
         Row: PlatformRow;
         Insert: PlatformInsert;
