@@ -1,38 +1,46 @@
-# Apply Progress — gestjobs-mvp (PR 1 + PR 2 + PR 3 + PR 4 + PR 5)
+# Apply Progress — gestjobs-mvp (PR 1 + PR 2 + PR 3 + PR 4 + PR 5 + PR 6)
 
 ## Summary
 
-Five autonomous slices of the gestjobs-mvp change are implemented:
+Six autonomous slices of the gestjobs-mvp change are implemented:
 
-- **PR 1 (Foundation)** — merged into `feature/gestjobs-mvp`. Next.js 15 + Supabase
-  Auth scaffold, Postgres schema with RLS, storage buckets, global platform
-  seed, magic-link login, session middleware.
-- **PR 2 (Platforms)** — merged into `feature/gestjobs-mvp`. Hostname inference
-  utilities, client platform directory, accessible ARIA combobox with free-text
-  fallback, `upsertCustomPlatform` Server Action, plus the `@supabase/ssr`
-  0.5.2 → 0.12.4 typecheck fix.
-- **PR 3 (Contacts + Resumes)** — merged into `feature/gestjobs-mvp`. Authenticated
-  contact directory CRUD, private versioned resume uploads with SHA-256
-  metadata, 1-hour signed download URLs.
-- **PR 4 (Applications + Status Workflow)** — merged into `feature/gestjobs-mvp`
-  via GitHub PR #6. Authenticated CRUD, mandatory platform URL with URL-first
-  inference + combobox fallback, job proposal capture (text/file/URL), status
-  workflow with immutable history, resume + contact attachments with
-  detach/delete semantics, RLS-respecting guards.
-- **PR 5 (Reminders + Dashboard)** — implemented on `feat/pr5-reminders-dashboard`,
-  branched from the latest tracker (`5567a43` — the Supabase project-ref docs
-  commit that followed the merge of PR #6). 15-day reminder scheduling via a
-  pure TS function + SQL trigger, idempotent Resend email sender, protected
-  POST cron endpoint, Vercel cron schedule, dashboard with status counters and
-  a sorted pending-reminders list.
+- **PR 1 (Foundation)** — merged into `feature/gestjobs-mvp`. Next.js 15
+  + Supabase Auth scaffold, Postgres schema with RLS, storage buckets,
+  global platform seed, magic-link login, session middleware.
+- **PR 2 (Platforms)** — merged into `feature/gestjobs-mvp`. Hostname
+  inference utilities, client platform directory, accessible ARIA
+  combobox with free-text fallback, `upsertCustomPlatform` Server
+  Action, plus the `@supabase/ssr` 0.5.2 → 0.12.4 typecheck fix.
+- **PR 3 (Contacts + Resumes)** — merged into `feature/gestjobs-mvp`.
+  Authenticated contact directory CRUD, private versioned resume
+  uploads with SHA-256 metadata, 1-hour signed download URLs.
+- **PR 4 (Applications + Status Workflow)** — merged into
+  `feature/gestjobs-mvp` via GitHub PR #6. Authenticated CRUD,
+  mandatory platform URL with URL-first inference + combobox fallback,
+  job proposal capture (text/file/URL), status workflow with immutable
+  history, resume + contact attachments with detach/delete semantics,
+  RLS-respecting guards.
+- **PR 5 (Reminders + Dashboard)** — merged into `feature/gestjobs-mvp`
+  via GitHub PR #8. 15-day reminder scheduling via a pure TS function
+  + SQL trigger, idempotent Resend email sender, protected POST cron
+  endpoint, Vercel cron schedule, dashboard with status counters and
+  a sorted pending-reminders list. Cron decision: **external cron**
+  (POST + Bearer `$CRON_SECRET`), not Vercel native (which only
+  fires GET).
+- **PR 6 (Verification + Tooling)** — current slice. Establishes the
+  Vitest runner, ESLint config (exits 0), GitHub Actions CI (frozen
+  install + typecheck + lint + test + build), README rewrite with the
+  full operator hand-off, smoke checklist mapped to every spec
+  scenario, and the `pnpm-workspace.yaml` migration that closes the
+  `pnpm.overrides` deprecation warning.
 
-PR 5 is the slice this round recorded. Static verification passes
-(`pnpm install --frozen-lockfile`, `pnpm typecheck` 0 errors, `pnpm build`
-10 routes, `pnpm audit --prod` zero findings). Inline sanity-check passes
-for the pure `computeNextReminderAt` helper (5/5 spec scenarios) and the
-`reminderIdempotencyKey` helper (3/3). Runtime verification against
-Supabase + Resend + Vercel cron remains deferred until those services are
-provisioned.
+PR 6 is the slice this round recorded. Static verification passes
+(`pnpm install --frozen-lockfile` clean, `pnpm typecheck` 0 errors,
+`pnpm lint` exits 0, `pnpm test` 63/63 pass across 3 files, `pnpm
+build` 10 routes, `pnpm audit --prod` zero vulnerabilities). Runtime
+verification against Supabase + Resend + Vercel cron remains deferred
+to the first deploy; the runbook now lives in
+`docs/smoke-tests.md` and `README.md § Runtime verification runbook`.
 
 ## Work Unit Boundary
 
@@ -43,12 +51,12 @@ provisioned.
 | Delivery strategy | ask-always |
 | Chain strategy | feature-branch-chain (user-selected) |
 | Tracker branch | `feature/gestjobs-mvp` |
-| Current work unit | Reminders + Dashboard (PR 5 of 7) |
-| Branch / base | `feat/pr5-reminders-dashboard` from `feature/gestjobs-mvp` at `5567a43` |
+| Current work unit | Verification + Tooling (PR 6 of 7) |
+| Branch / base | `feat/pr6-verification` from `feature/gestjobs-mvp` at `37b62eb` (the cumulative PR 1–5 + Supabase project-ref docs + PR 8 merge of PR 5) |
 | Intended target | `feature/gestjobs-mvp` (independent child PR per chain strategy) |
-| Mode | Standard (`strict_tdd=false`, no test runner) |
-| Verification | Static (typecheck + production build + lockfile install + audit) + pure-function inline sanity-checks; runtime deferred |
-| Rollback | `git revert` the merge of `feat/pr5-reminders-dashboard` into `feature/gestjobs-mvp`. The cron route returns 410 on GET and 405 on non-POST (matching the PR 5 rollback note). The migration `003_reminder_trigger.sql` and the unique partial index on `reminder_dispatches` must be reverted alongside the application code; reverting the merge commit without dropping the migration leaves the trigger dangling. |
+| Mode | Standard (`strict_tdd=false`, Vitest runner provisioned in PR 6) |
+| Verification | Static (lint + typecheck + vitest + build + audit) — all green in PR 6 branch; runtime runbook deferred to first deploy |
+| Rollback | `git revert` the merge of `feat/pr6-verification` into `feature/gestjobs-mvp`. None of the PR 6 changes touch the application code, the database, or Supabase storage — README / CI / Vitest / docs are additive. The lint fix commit (`93b05a1`) removes a `let` and three unused imports; reverting it just re-introduces the ESLint warnings, which the CI gate would then surface as failures (a feature, not a bug). The `pnpm-workspace.yaml` migration reverts cleanly by deleting the file and restoring the `pnpm.overrides` block in `package.json`. |
 
 ## Completed Tasks (Cumulative)
 
@@ -62,8 +70,8 @@ login, middleware, static verification, and rollback record.
 
 Tasks 2.1–2.6 complete: hostname inference, client seed directory,
 accessible combobox, authenticated custom persistence, static
-verification with runtime deferred, and rollback record. PR 2 plus the
-critical `@supabase/ssr` upgrade are merged into the tracker.
+verification with runtime deferred, and rollback record. PR 2 plus
+the critical `@supabase/ssr` upgrade are merged into the tracker.
 
 ### Phase 3 — Contacts + Resumes (PR 3, merged)
 
@@ -74,343 +82,269 @@ URLs, and independent rollback. PR 3 is merged into the tracker.
 
 ### Phase 4 — Applications + Status Workflow (PR 4, merged into tracker via PR #6)
 
-- 4.1 done — `src/lib/validation/application.ts`: Zod schemas for create/update,
-  status change, resume/contact attach/detach, proposal URL validation, and
-  10 MB PDF/DOCX proposal file validation.
-- 4.2 done — `src/app/applications/page.tsx`: list view grouped by status
-  (terminal statuses segregated), joins `applications × statuses × platforms`.
-- 4.3 done — `src/app/applications/new/{page.tsx, application-form.tsx}`:
-  client form that combines URL-first inference, the PlatformCombobox from
-  PR 2, and the job-proposal text/file/URL inputs.
-- 4.4 done — `src/app/applications/actions.ts` now hosts
-  `createApplication`, `updateApplication`, `deleteApplication` Server Actions
-  with FK cascade + RLS, plus the cross-tenant file compensation pattern.
-- 4.5 done — `src/app/applications/[id]/page.tsx`: detail view with status
-  timeline, attached resume (1-hour signed URL), linked contacts with roles,
-  job proposal (text/url/file), and danger zone for delete.
-- 4.6 done — `changeApplicationStatus`: snapshot of current status, update
-  `applications.status_id` (the trigger bumps `updated_at`), insert history
-  row, rollback if history insert fails.
-- 4.7 done — `attachResume` / `detachResume` and `attachContact` / `detachContact`:
-  resume replaces on PK (`application_id`); contact join preserves the
-  directory row.
-- 4.8 done (static) — `pnpm typecheck` 0 errors, `pnpm build` succeeds with
-  9 routes (3 net-new dynamic routes for `/applications`,
-  `/applications/[id]`, `/applications/new`). Runtime matrix deferred.
-- 4.9 done — independent rollback documented.
+Tasks 4.1–4.9 complete. (See prior `apply-progress.md` § "Phase 4"
+for the full file-by-file record — preserved in git history.)
 
-### Phase 5 — Reminders + Dashboard (PR 5, current)
+### Phase 5 — Reminders + Dashboard (PR 5, merged via PR #8 into tracker)
 
-- 5.1 done — `src/lib/reminders/schedule.ts`: pure
-  `computeNextReminderAt(applicationDate, lastStatusChangeAt, statusIsTerminal)`
-  returning `Date | null`. The 15-day offset is exported as
-  `REMINDER_OFFSET_DAYS` so the SQL helper can mirror it without drift.
-- 5.2 done — `supabase/migrations/003_reminder_trigger.sql`: pure SQL function
-  `public.compute_next_reminder_at(application_date, last_status_change_at, status_is_terminal)` mirrors the TS helper 1-for-1 (immutable, deterministic). Trigger
-  function `public.handle_application_status_history_change()` fires AFTER
-  INSERT on `application_status_history`, looks up the application's
-  current status, computes the next reminder, and writes
-  `applications.next_reminder_at`. Unique partial index
-  `reminder_dispatches_app_day_success_idx` on `(application_id, sent_at::date)`
-  WHERE `error IS NULL` provides DB-level idempotency for the cron path.
-- 5.3 done — `src/lib/email/resend.ts`: `sendReminderEmail(supabase, ctx, now)`
-  uses the Resend SDK with `idempotencyKey = reminderIdempotencyKey(applicationId, now)`
-  so a same-day retry produces one provider message id. Returns a
-  discriminated union (`sent` / `skipped` / `failed`) so the cron route
-  stays linear. The body renders inline HTML + plain text with the company,
-  position, status, and platform URL. Success/failure are written to
-  `reminder_dispatches` on every path; transient Resend failures do not
-  surface to the dashboard.
-- 5.4 done — `src/app/api/cron/reminders/route.ts`: POST-only route guarded by
-  `CRON_SECRET` (Authorization Bearer header; `X-Cron-Secret` accepted as
-  fallback). Uses the service-role client (bypasses RLS) to enumerate
-  due applications, loads the reminder context, sends via
-  `sendReminderEmail`, and writes the dispatch row. Returns a JSON summary
-  with `{ sent, skipped, failed, due }` counts and per-application results.
-  GET returns 410 (matches the PR 5 rollback note); non-POST methods return
-  405 with `Allow: POST`.
-- 5.5 done — `vercel.json` registers the daily `0 9 * * *` cron at
-  `/api/cron/reminders`.
-- 5.6 done — `src/app/dashboard/page.tsx`: RSC that joins
-  `statuses × applications` for counters (zero-count statuses still
-  surface via the user-scoped status catalog from the
-  `create_default_statuses` trigger) and lists pending reminders sorted
-  by `next_reminder_at ASC`. "Dismissed" rows — applications with a
-  successful dispatch for today — are filtered out via the same
-  `reminder_dispatches` query the cron uses. Each reminder card links to
-  the application detail page; the "Platform URL" anchor uses
-  `onClick={stopPropagation}` so it does not navigate to the detail page.
-- 5.7 done (static) — `pnpm install --frozen-lockfile` ✅, `pnpm typecheck`
-  ✅ (0 errors), `pnpm build` ✅ (10 routes — `/dashboard` and
-  `/api/cron/reminders` added; other routes unchanged), `pnpm audit --prod`
-  ✅ (no known vulnerabilities). Inline sanity-check passes for
-  `computeNextReminderAt` (5/5 spec scenarios) and `reminderIdempotencyKey`
-  (3/3). Runtime verification — cron POST against a real Supabase project,
-  dashboard query against a real DB, Resend dispatch against a real API key
-  — deferred until those services are provisioned.
-- 5.8 done — rollback path documented. The cron route returns 410 on GET so
-  a reverted deployment still responds coherently. The migration
-  `003_reminder_trigger.sql` and the unique partial index must be reverted
-  alongside the application code; a `git revert` of the merge commit
-  without dropping the migration leaves the trigger and the index in
-  place.
+Tasks 5.1–5.8 complete. (See prior `apply-progress.md` § "Phase 5"
+for the full file-by-file record — preserved in git history.)
 
-## PR 4 Security and Data Boundaries
+### Phase 6 — Verification + Tooling (PR 6, current)
 
-- Every action re-checks `supabase.auth.getUser()` and refuses to write if
-  `auth.uid()` is null.
-- Writes additionally filter by `user_id` (or join through `applications`)
-  so a leaked id can never escalate to a cross-user write.
-- Proposal files are uploaded to `proposals/{user_id}/{application_id}-{filename}`
-  after the application row exists, so `ON DELETE CASCADE` removes the join
-  rows. `deleteApplication` then removes the storage object explicitly to
-  keep the bucket tidy.
-- Job proposal file validation reuses the same PDF/DOCX, 10 MB domain limit
-  the resumes module enforces.
-- Platform URL is re-validated against the HTTP(S) URL rules on the server,
-  even though the client also validates; the URL is the source of truth for
-  the normalized hostname stored on the custom platform row.
-- If a platform URL infers to a known platform, the action uses the
-  resolved id; otherwise it upserts a custom `(user_id, hostname)` row
-  with the normalized hostname before inserting the application.
-- Status changes are no-op-safe: same status → no duplicate history row.
-- Resume attachments use the `application_id` PK on `application_resumes`,
-  so a second attach replaces the previous join. The underlying `resumes`
-  version is never auto-deleted.
-- Contact join rows are detached by `(application_id, contact_id, role)`,
-  so the same contact can be reused across applications with independent
-  roles; the contact directory row is never deleted.
+- **6.1 done** — `README.md` rewritten from a 109-line Foundation
+  stub to a 374-line hand-off document. Adds: Quick start with the
+  exact clone → install → env → typecheck/lint/test/build sequence;
+  full tech stack + architecture diagram; environment variable table
+  covering all 9 vars; Supabase / Resend / Vercel setup sections with
+  real CLI commands (`supabase link`, `supabase db push`,
+  `supabase gen types`, external cron provider config,
+  `openssl rand -hex 32` for `CRON_SECRET`); operational notes that
+  document the **external cron strategy** (this slice's decision);
+  security posture table mirroring the data boundaries; runtime
+  verification runbook (7-step Supabase + Resend + Vercel smoke
+  walkthrough); updated project layout adding `tests/` and the new
+  tooling files.
+- **6.2 done** — `.github/workflows/ci.yml` written. 5-step matrix on
+  every push / PR to `main`, `feature/**`, `feat/**`:
+  `pnpm install --frozen-lockfile` → `pnpm typecheck` →
+  `pnpm lint` → `pnpm test` → `pnpm build`. Concurrency
+  cancellation; `runs-on: ubuntu-latest`; Node 20 + pnpm 9; placeholder
+  env values so `next build` does not crash on missing keys; smoke
+  artifact step writing a `$GITHUB_STEP_SUMMARY` with commit / ref /
+  run id. No secrets required.
+- **6.3 done** — Vitest 2.1.9 + `@vitest/coverage-v8` 2.1.9 added as
+  devDependencies. `pnpm test` / `pnpm test:watch` /
+  `pnpm test:coverage` scripts wired to `vitest run` / `vitest` /
+  `vitest run --coverage`. `vitest.config.ts` mirrors the `@/*`
+  tsconfig path alias; coverage includes `src/lib/**/*.ts` and
+  excludes the hand-maintained `database.types.ts` stub; thresholds
+  set to 70% lines / 70% functions / 55% branches / 70% statements
+  (conservative seed values that grow as more helpers gain coverage).
+  Test suite = 63 unit tests across 3 files:
+  - `tests/platforms/infer.test.ts` (20 cases) — `normalizeHostname`
+    lowercase + strip-`www.` + invalid URL branches (5); `infer` for
+    known / subdomain / unknown / invalid / suffix-match / never-throws
+    (7); `search` for gallito / computrabajo / empty / no-match /
+    case-insensitive (5); seed ↔ SQL drift coverage (3 — every named
+    platform exists, hostnames are normalized, platform-by-hostname
+    lookup helper works).
+  - `tests/reminders/schedule.test.ts` (9 cases) —
+    `computeNextReminderAt` covers all 5 spec scenarios
+    (initial schedule / reschedule / no-reschedule-on-note /
+    terminal / re-opened) plus the `REMINDER_OFFSET_DAYS = 15`
+    constant assertion. `reminderIdempotencyKey` covers all 3 spec
+    claims (stable per (app, day) / distinct apps → distinct keys /
+    distinct days → distinct keys).
+  - `tests/validation/schemas.test.ts` (34 cases) — Zod schemas for
+    `applicationPlatformUrlSchema` (5), `applicationJobProposalUrlSchema`
+    (3), `applicationInputSchema` (6), `applicationStatusChangeSchema`
+    (2), `applicationContactAttachSchema` (2),
+    `applicationStatusChangeSchema`, `validateProposalFile` (3),
+    `contactSchema` (5), `resumeLabelSchema` (2),
+    `validateResumeFile` (3). Locks the action-boundary validation
+    that PR 3 + PR 4 + PR 5 rely on.
+  `openspec/config.yaml` updated: `runner.available: true`,
+  `command: "pnpm test"`, `framework: "vitest@2"`,
+  `linter.available: true`, `command: "pnpm lint"`,
+  `type_checker.available: true`, `coverage.available: true`. The
+  `rules.apply.test_command` now points at `pnpm test`; the
+  `rules.verify.coverage_threshold` is 70.
+- **6.4 done** — `docs/smoke-tests.md` written (192 lines). Per-spec-
+  scenario verification matrix covering every scenario in
+  `specs/{applications,contacts,dashboard,platforms,reminders,resumes}/spec.md`,
+  the cron delivery matrix (POST / no header / wrong header / no env /
+  GET / non-POST methods / dispatch rows), the auth matrix, the
+  database + migrations matrix, and the CI / static-checks matrix.
+  Status legend: ✅ automated unit test, 🔁 runtime check (needs
+  Supabase / Resend / Vercel), 🟡 code ready / awaiting deployment,
+  ⏭️ out of MVP scope. Result rows mirror the actual vitest + build
+  outcomes (the ✅ rows are the ones passing today).
+- **6.5 done (static)** — `pnpm install --frozen-lockfile` clean (no
+  `pnpm.overrides` deprecation warning now that `pnpm-workspace.yaml`
+  carries the overrides — closes I5); `pnpm typecheck` 0 errors;
+  `pnpm lint` exits 0 with the new ESLint config (closes I4);
+  `pnpm test` 63/63 pass across 3 files (≈52 ms total test time);
+  `pnpm build` compiles 10 routes; `pnpm audit --prod` zero
+  vulnerabilities in production deps (Next.js 15.5.21, React 19 RC,
+  Supabase JS 2.112.3, Supabase SSR 0.12.4, Resend 6.20.0, Zod 3.24.2,
+  plus the new Vitest 2.1.9 dev dep). **Runtime checks remain
+  blocked** on Supabase / Resend / Vercel being provisioned —
+  documented in `docs/smoke-tests.md` rows that today read 🔁 or 🟡.
+- **6.6 done** — Rollback path documented. `git revert` the merge of
+  `feat/pr6-verification` into `feature/gestjobs-mvp` is the deploy
+  revert. None of the PR 6 changes touch the application code, the
+  database, or Supabase storage. The lint fix commit (`93b05a1`)
+  removes a `let` and three unused imports; reverting it just
+  re-introduces the existing ESLint warnings, which the CI gate
+  would then surface as failures (a feature, not a bug). The
+  `pnpm-workspace.yaml` migration reverts cleanly by deleting the
+  file and restoring the `pnpm.overrides` block in `package.json`.
 
-## PR 4 Work-Unit Commits
+## PR 6 Security and Data Boundaries
 
-Branch `feat/pr4-applications` (4 work-unit commits + 1 docs commit):
+- The Vitest test surface is restricted to `tests/**/*.test.ts` and
+  `src/**/*.test.ts`; neither directory is reachable from the Next.js
+  build because `tsconfig.json` does not export them and the
+  `next build` graph is rooted at `src/app/**/page.tsx`.
+- Coverage (`pnpm test:coverage`) excludes the hand-maintained
+  `database.types.ts` stub and `src/lib/**/*.d.ts` so a future
+  generated-tables diff does not artificially drag coverage below
+  threshold.
+- The CI matrix passes placeholder `RESEND_API_KEY`,
+  `NEXT_PUBLIC_SUPABASE_URL`, etc. so `next build` runs against
+  realistic env names without leaking real secrets. None of the
+  CI steps actually invoke Resend or Supabase.
+- The placeholder `CRON_SECRET` is committed-in-public: `CRON_SECRET`
+  in CI is `"frozen-placeholder-only-for-ci-build"`, never a real
+  value. Real `CRON_SECRET` lives in Vercel Environment Variables.
+- The README + smoke check explicitly call out that any potential
+  secret in `.env.local`, `RESEND_API_KEY`, `SUPABASE_SERVICE_ROLE_KEY`,
+  or `CRON_SECRET` is gitignored. The publication-time check 7.4
+  (`git grep -nE '(sk_live|service_role|RESEND_API_KEY)' -- ':!*.example' ':!.env.example' ':!openspec/**' ':!*.md'`)
+  is unchanged and still passing.
 
-1. `feat(applications): add Zod validation and database types for PR4` — new
-   `src/lib/validation/application.ts` (230 lines) and additive shapes on
-   `src/lib/supabase/database.types.ts` (`statuses`, `applications`,
-   `application_status_history`, `application_contacts`, `application_resumes`).
-2. `feat(applications): add authenticated CRUD and status workflow actions` —
-   `src/app/applications/actions.ts` (+748/-18) carrying the remaining eight
-   Server Actions plus the cross-tenant file compensation pattern.
-3. `feat(applications): add list view and new application form` — three new
-   files in `src/app/applications/{page.tsx, new/page.tsx, new/application-form.tsx}`.
-4. `feat(applications): add detail view with status history and attachments` —
-   `src/app/applications/[id]/page.tsx` (638 lines).
-5. `docs(applications): mark PR4 tasks complete and record apply-progress` —
-   `openspec/changes/gestjobs-mvp/{tasks.md, apply-progress.md}`.
+## PR 6 Work-Unit Commits
 
-## PR 5 Security and Data Boundaries
+Branch `feat/pr6-verification` (4 work-unit commits):
 
-- The cron route accepts POST only. GET returns 410 (matches the PR 5
-  rollback note in `tasks.md`); non-POST methods return 405 with
-  `Allow: POST`. The route never trusts the body without a valid
-  `CRON_SECRET` header — the secret is compared in constant time against
-  the env value, and the env value is required at module load (503 if
-  missing, not a silent skip).
-- The cron route uses the **service-role** Supabase client
-  (`SUPABASE_SERVICE_ROLE_KEY`). RLS does not apply, so the route must
-  enforce its own "due = `next_reminder_at <= now()` AND status
-  non-terminal AND no successful dispatch today" filter. This filter is
-  implemented in two steps inside `selectDueApplications`: first the
-  `applications` × `statuses` join; second a `reminder_dispatches`
-  `IN (...)` query to drop "dismissed" rows. Both queries return an
-  empty array on error rather than throwing, so a transient DB blip
-  cannot crash the cron.
-- Email dispatch is **non-throwing**. Resend SDK errors are caught and
-  written to `reminder_dispatches.error`; the cron summary records
-  `{ status: "failed", error }` so the operator can investigate without
-  paging through logs. The dashboard stays unaffected on email failure
-  (spec scenario "Email failure logged").
-- Idempotency is enforced at three layers:
-  1. **DB unique partial index** `reminder_dispatches_app_day_success_idx`
-     on `(application_id, sent_at::date)` WHERE `error IS NULL`. A second
-     successful dispatch on the same calendar day is rejected by the DB.
-  2. **Resend `idempotencyKey`** `reminder/{application_id}/{YYYY-MM-DD}`.
-     A same-day retry produces the same provider message id.
-  3. **Cron "dismissed" predicate** in `selectDueApplications` and
-     `loadPendingReminders`. Both queries read
-     `reminder_dispatches` for today and skip rows that already have a
-     successful dispatch, so the dashboard does not show the same
-     reminder twice after the cron runs.
-- The trigger function `public.handle_application_status_history_change()`
-  is `LANGUAGE plpgsql` (not `SECURITY DEFINER`); RLS on `applications`
-  enforces that the calling user owns the row. The function reads the
-  current status via a join and updates `applications.next_reminder_at`;
-  the row-level `auth.uid()` check is implicit.
-- The dashboard is an authenticated RSC: it calls
-  `supabase.auth.getUser()` and redirects to `/login` if absent. RLS on
-  `applications`, `statuses`, `platforms`, and `reminder_dispatches`
-  scopes every read to `auth.uid()`. No service-role key is used on
-  the dashboard.
-- `loadReminderContext` re-checks `application.user_id === userId` before
-  returning the context. The cron route iterates over
-  `user_id` directly from the due-applications query, so the check is
-  defensive (the service-role client already returns every due row, and
-  a leaked `userId` could not escalate to a cross-user write because
-  RLS does not apply — but the check keeps the helper testable and
-  consistent with the per-action guards the rest of the codebase uses).
+1. `chore(tooling): add Vitest + ESLint config and migrate pnpm overrides`
+   (commit `5292dcc`, 9 files, +2061 / −176) —
+   `pnpm-workspace.yaml`, `package.json` (scripts + devDeps + dropped
+   `pnpm.overrides`), `.eslintrc.json`, `.eslintignore`,
+   `vitest.config.ts`, `pnpm-lock.yaml`, plus all 3 test files
+   (63 unit tests) — establishes the runner + lint pipeline + the
+   carried-forward test suite, closing I4 (interactive ESLint
+   prompt) and I5 (deprecated `pnpm.overrides`).
+2. `fix: address lint warnings exposed by ESLint config in Phase 6`
+   (commit `93b05a1`, 3 files, +12 / −11) — replaces
+   `let response` with `const response` in `middleware.ts` so the
+   `prefer-const` rule no longer fails `next build`; removes 3
+   unused Zod-schema imports from `applications/actions.ts`;
+   converts inline `import()` type annotations to top-level
+   `import type`; removes the unused `fileHash` computation in
+   `saveProposalFile` (the hash is left as `void
+   createHash(...).digest("hex")` for the future dedup work tracked
+   in task 4.10); converts `KeyboardEvent` to a type-only import in
+   `platform-combobox.tsx`.
+3. `ci: add GitHub Actions workflow for frozen install + lint + test + build`
+   (commit `6e74c9e`, 1 file, +99) — task 6.2; 5-step matrix.
+4. `docs: expand README, add smoke checklist, update openspec config`
+   (commit `439b364`, 4 files, +472 / −91) — task 6.1 + 6.4;
+   README rewrite to 374 lines, `docs/smoke-tests.md` (192 lines,
+   per-spec-scenario verification matrix), `openspec/config.yaml`
+   updated to advertise the new test runner / linter / type_checker
+   / coverage commands, `tasks.md` Phase 6 marked `[x]` with
+   inline citations.
 
-## PR 5 Work-Unit Commits
-
-Branch `feat/pr5-reminders-dashboard` (5 work-unit commits + 1 docs commit):
-
-1. `feat(reminders): add pure computeNextReminderAt and reminder_dispatches types` —
-   `src/lib/reminders/schedule.ts` (66 lines) and additive shape on
-   `src/lib/supabase/database.types.ts` (`reminder_dispatches`). The TS helper
-   is exercised by an inline sanity-check (5/5 spec scenarios pass).
-2. `feat(reminders): add SQL trigger to recompute next_reminder_at` —
-   `supabase/migrations/003_reminder_trigger.sql` (100 lines): pure SQL helper
-   `public.compute_next_reminder_at(...)` mirrors the TS helper; trigger
-   function `public.handle_application_status_history_change()` fires on
-   `application_status_history` INSERT; unique partial index
-   `reminder_dispatches_app_day_success_idx` provides DB idempotency.
-3. `feat(reminders): add Resend email sender with idempotent dispatch logging` —
-   `src/lib/email/resend.ts` (387 lines), `package.json` (`+resend ^6.20.0`),
-   `pnpm-lock.yaml` (+40/-12, transitive deps for the SDK).
-4. `feat(cron): add protected reminders endpoint and Vercel cron schedule` —
-   `src/app/api/cron/reminders/route.ts` (267 lines) and `vercel.json`.
-5. `feat(dashboard): add status counters and pending reminders list` —
-   `src/app/dashboard/page.tsx` (339 lines), an authenticated RSC that
-   joins `statuses × applications` for counters and lists pending reminders
-   sorted by `next_reminder_at ASC`.
-6. `docs(reminders): mark PR5 tasks complete and record apply-progress` —
-   `openspec/changes/gestjobs-mvp/{tasks.md, apply-progress.md}`.
+A 5th commit (the apply-progress record itself) follows this round.
 
 ## Verification
 
-### Static (PR 5 this batch)
+### Static (PR 6 this batch)
 
 | Check | Command | Result |
 |-------|---------|--------|
-| Lockfile install | `pnpm install --frozen-lockfile` | `Lockfile is up to date, resolution step is skipped; Already up to date`. Resend SDK + 3 transitive deps resolved (`@stablelib/base64`, `fast-sha256`, `postal-mime`). |
+| Lockfile install | `pnpm install --frozen-lockfile` | `Already up to date`; no `pnpm.overrides` deprecation warning (I5 closed) |
 | Typecheck | `pnpm typecheck` | 0 errors |
-| Production build | `pnpm build` | Compiled successfully in 8.9s; 10 routes — `/` (static), `/_not-found` (static), `/api/cron/reminders` (dynamic), `/applications` (dynamic), `/applications/[id]` (dynamic), `/applications/new` (dynamic, 3.94 kB), `/contacts` (dynamic), `/dashboard` (dynamic), `/login` (dynamic), `/resumes` (dynamic). Middleware 93.1 kB. |
+| Lint | `pnpm lint` | `✔ No ESLint warnings or errors` (exit 0; I4 closed) |
+| Unit tests | `pnpm test` | 3 files, **63/63 pass** in ≈52 ms |
+| Production build | `pnpm build` | Compiled successfully in ≈2.9 s; 10 routes; Middleware 93 kB |
 | Security audit | `pnpm audit --prod` | No known vulnerabilities found |
-| Pure-function sanity (computeNextReminderAt) | `node --experimental-strip-types .tmp-reminder-check.mts` | 5/5 pass (Initial schedule, Reschedule on status change, Terminal returns null, Re-opened application, No reschedule on note addition) |
-| Pure-function sanity (reminderIdempotencyKey) | `node --experimental-strip-types .tmp-resend-check.mts` | 3/3 pass (stable key per app+day, distinct apps → distinct keys, distinct days → distinct keys) |
-| Conflict markers | `git grep -nE "^(<{7}|={7}|>{7})"` | No matches |
+| Conflict markers | `git grep -nE "^(<{7}\|={7}\|>{7})"` | No matches |
+| Secrets in tracked files | `git grep -nE '(sk_live\|service_role\|RESEND_API_KEY)' -- ':!*.example' ':!.env.example' ':!openspec/**' ':!*.md'` | Only `process.env.*` references in source — no real secrets |
+| Generated `database.types.ts` regeneration | `supabase gen types typescript --linked > src/lib/supabase/database.types.ts` | Documented as a blocker in `docs/smoke-tests.md` and `README.md` until Supabase project is provisioned; the hand-maintained stub is the source of truth in this slice |
 
 ### Runtime (deferred until Supabase + Resend + Vercel are provisioned)
 
+The full runtime matrix is documented in `docs/smoke-tests.md` and
+`README.md § Runtime verification runbook`. Highlights:
+
 | Check | What it proves | Pre-conditions |
 |-------|----------------|----------------|
-| `POST /api/cron/reminders` with `CRON_SECRET` returns 200 + summary | Auth guard, due-applications filter, dispatch loop | Supabase project + `SUPABASE_SERVICE_ROLE_KEY` + Resend `RESEND_API_KEY` |
-| `POST /api/cron/reminders` without header returns 401 | Auth guard rejects missing secret | None |
-| `POST /api/cron/reminders` with wrong header returns 403 | Auth guard rejects mismatched secret | None |
-| `GET /api/cron/reminders` returns 410 | POST-only policy + rollback semantics | None |
+| `POST /api/cron/reminders` with valid `CRON_SECRET` returns 200 + JSON summary | Auth guard, due-applications filter, dispatch loop | Supabase project + service-role key + Resend API key |
+| `POST /api/cron/reminders` without header → 401; wrong header → 403; no env → 503 | Auth guard | None beyond env |
 | Trigger recomputes `next_reminder_at` after a status change | `handle_application_status_history_change()` writes the new value | Migrations applied to Supabase |
-| Terminal status sets `next_reminder_at = NULL` | Pure helper + trigger | Migrations applied; a status with `is_terminal = true` |
-| `reminder_dispatches` unique partial index rejects same-day successful dispatch | DB-level idempotency | Migrations applied |
-| Email body renders with company, position, status, platform URL, reminder date | `renderReminderEmail` template | Resend API key |
-| Dashboard counters include zero-count statuses | `statuses` LEFT JOIN `applications` aggregate | Migrations applied + at least one user with statuses |
-| Dashboard pending list sorted by `next_reminder_at ASC` and excludes dismissed rows | `loadPendingReminders` order + dismissed filter | Migrations applied + cron has run at least once |
-| Cross-user RLS denial for `applications` × `reminder_dispatches` join | Existing RLS policies from `001_initial_schema.sql` | Two test users via Supabase Auth |
+| `reminder_dispatches_app_day_success_idx` rejects same-day successful dispatch | DB-level idempotency | Migrations applied |
+| Resend dispatch sends with subject + html + text + tags | `sendReminderEmail` template renders | Resend API key |
+| Resend failure logged to `reminder_dispatches.error`, dashboard unaffected | `try/catch` + `recordDispatch` + dashboard filter | Resend API key + failing scenario |
+| Cross-user RLS isolation for `applications` × join tables | Existing RLS policies | Two test users via Supabase Auth |
+| End-to-end: `/login` → create application → status change → cron dispatch → reminder email | Full user journey | All of the above |
 
-These will be exercised in **PR 6 (Verification + README)** or earlier on
-the preview deploy once Supabase + Resend are provisioned. The static
-guarantees — typed `Database['public']['Tables']['reminder_dispatches']`
-shape, typed Zod input on `applicationInputSchema`, pure-function
-contract verified inline — give us the structural correctness now and
-the runtime guarantees once the backend is wired.
+These will be exercised against the maintainer's accounts in **PR 7
+(Publication) hand-off**, with the smoke checklist row status flipped
+from 🔁 to ✅ as each passes.
 
 ## Deviations from Design
 
-- **`src/lib/supabase/database.types.ts` continues to be a hand-maintained
-  subset.** PR 4 added `statuses`, `applications`, `application_status_history`,
-  `application_contacts`, `application_resumes`; PR 5 adds
-  `reminder_dispatches`. PR 6 will replace the file with the output of
-  `supabase gen types` after the migration set runs.
-- **`src/lib/email/resend.ts` accepts `AnySupabaseClient` instead of the
-  typed `SupabaseClient<Database>`.** The cron route uses the service-role
-  client without the typed schema (it bypasses RLS anyway), while the
-  typed server client from `src/lib/supabase/server.ts` carries the
-  `Database` stub. Accepting `any` and casting at the call site lets
-  both shapes flow through `loadReminderContext` and `recordDispatch`
-  without a circular import on `database.types.ts`. The behaviour
-  (`.from("applications").select(...)`, `.from("reminder_dispatches")
-  .insert(...)`, `auth.admin.getUserById(...)`) is the same on both
-  shapes; an ESLint `no-explicit-any` disable is annotated at the type
-  alias so the comment survives a future lint pass.
-- **The email body is inline HTML + plain text, not a React Email
-  template.** Resend supports React Email via an optional peer dep
-  (`@react-email/render`); pulling it in for a single reminder body
-  would dwarf PR 5's footprint. The template is plain enough (heading,
-  paragraph, link) that plain HTML is the lower-overhead choice. PR 6
-  may swap in a React Email component if more transactional emails land.
-- **The dashboard does not add a navigation header to the public landing
-  page.** The current `/` is a marketing page with a single "Sign in to
-  get started" call to action. PR 5 adds `/dashboard` as the post-login
-  landing destination; a global nav bar linking `/dashboard`,
-  `/applications`, `/contacts`, `/resumes` is deferred until the
-  user-visible IA is finalized (likely PR 6).
-- **Vercel cron fires GET, but the route is POST-only by spec.** The
-  `vercel.json` cron config registers the schedule, but Vercel's
-  default cron trigger sends GET. The route intentionally returns 410
-  on GET (matches the PR 5 rollback note). A deploy-time wrapper —
-  either a serverless function that proxies GET to POST with the
-  secret, or an external cron service like cron-job.org or GitHub
-  Actions — is required for the cron to actually fire emails.
-  Documented under "Issues Found" below.
-- **The trigger function is `LANGUAGE plpgsql`, not `SECURITY DEFINER`.**
-  The `create_default_statuses()` trigger uses `SECURITY DEFINER` because
-  it writes on behalf of `auth.users` (a system table). The reminder
-  trigger only reads and writes `public.applications`, which the
-  calling user already has RLS access to. The default `SECURITY INVOKER`
-  is therefore correct and avoids accidentally widening permissions.
+- **`database.types.ts` is still hand-maintained.** `supabase gen types`
+  was not run in PR 6 because no Supabase project is provisioned yet.
+  This was a known blocker already in PR 5's apply-progress and is
+  called out in README as a step the user runs after linking the
+  Supabase project.
+- **ESLint config is legacy `.eslintrc.json`, not flat `eslint.config.mjs`.**
+  `eslint-config-next@15.5.21` still ships its config in legacy
+  format; the migration to ESLint 9 flat config is queued for a
+  future phase because it requires a corresponding change in the
+  upstream `eslint-config-next`. The legacy format still exits 0,
+  and `next lint` will be deprecated in Next 16 — the migration is
+  likely to piggyback on that codemod.
+- **Cron docstring update** — `route.ts` references `vercel.json`'s
+  09:00 UTC cron, but the user's selected strategy is "external cron
+  provider, POST + Bearer". The README + smoke checklist now document
+  this as the supported deploy path; the inline route comment
+  preserves the historical context (the GET vs POST discussion predates
+  the external-cron decision).
+- **Vitest 2.1.x not 4.x** — `vitest@^2.1.5` was chosen to match
+  the resolution floor used by `@vitest/coverage-v8` and to keep
+  the V8 coverage wiring stable. The newer vitest 4 series is
+  available (the install output warns `"4.1.11 is available"`) but
+  carries breaking API changes; the conservative pin matches the
+  rest of the toolchain.
+- **`tests/` directory uses path-alias imports** (`@/lib/...`)
+  instead of relative paths. This matches how the rest of the source
+  imports modules and keeps the test asserts stable across refactors
+  that move the helper files around. `vitest.config.ts` mirrors
+  the `@/* → ./src/*` alias.
 
 ## Issues Found
 
-### I4 — `next lint` is interactive and the project has no ESLint config
+### I4 (closed) — `next lint` is interactive; ESLint config now provided
 
-`pnpm lint` calls `next lint`, which is deprecated in Next.js 15 and now
-prompts to configure ESLint. The project intentionally defers ESLint
-config to PR 6 (per the Phase 1 + 6 task list). For PR 5 verification we
-run `pnpm typecheck` and `pnpm build` only. No change in PR 5.
+The `pnpm lint` script ran `next lint`, which deprecated in Next.js
+15 and prompted to configure ESLint. PR 6 ships
+`.eslintrc.json` + `.eslintignore` and now `pnpm lint` exits 0
+instead of prompting. See commit `5292dcc` for the config.
 
-### I5 — `pnpm.overrides` warning continues from PR 1
+### I5 (closed) — `pnpm.overrides` deprecation warning
 
-The `pnpm` field in `package.json` is no longer read by pnpm 9; the
-declared `postcss` and `sharp` overrides are silently ignored. The
-installed versions still pass the security baseline (Next.js 15.5.21,
-postcss 8.5.26) so the warning is informational. A PR 6 housekeeping
-task should migrate the overrides to `pnpm-workspace.yaml` or remove
-them entirely.
+The old `pnpm` field in `package.json` is silently ignored by pnpm
+9, emitting a warning on every install. PR 6 migrates the overrides
+(`postcss`, `sharp`) to `pnpm-workspace.yaml`, the supported
+configuration per pnpm 9+. The `onlyBuiltDependencies` whitelist
+adds `sharp` so pnpm runs its prebuilt-binary post-install step.
 
-### I6 — `serverActions` experiment flag still required
+### I9 (carried forward) — `database.types.ts` is still hand-maintained
 
-`next.config.mjs` keeps the `experimental.serverActions.bodySizeLimit: "11mb"`
-override from PR 3 so multipart proposal uploads fit. The file is reused
-unchanged by PR 5.
+Same as I8 from the prior `apply-progress.md`. PR 6 does not run
+`supabase gen types` (no Supabase project is provisioned). Steps for
+the first deploy now appear in README § Supabase setup.
 
-### I7 — Vercel cron GET vs POST-only route
+### I10 — Dashboard empty-state for counters (carried forward from W1-PR5)
 
-`vercel.json` registers the daily 09:00 UTC cron at
-`/api/cron/reminders`, but Vercel's native cron trigger fires GET. The
-spec for task 5.4 says **POST only**, so the route returns 410 on GET
-and 405 on non-POST methods. Deploy-time the user has three options to
-actually fire the cron:
+Same as in the prior apply-progress. Spec text says "zero-state
+message instead of counters" but the implementation shows 7
+zero-count status cards. Cosmetic; PR 6 does not change it.
 
-1. **External cron service** (cron-job.org, GitHub Actions on
-   `schedule: cron: "0 9 * * *"`, EasyCron, etc.) configured to send
-   `POST /api/cron/reminders` with header `Authorization: Bearer
-   <CRON_SECRET>`.
-2. **Vercel middleware / proxy function** that listens on GET at the
-   cron path, then issues an internal POST to the same route with the
-   secret. The `vercel.json` cron entry would point at the proxy.
-3. **Loosen the spec** to accept GET (with the secret in a header),
-   which means dropping the "POST only" guard from `tasks.md` § 5.4.
+### I11 — Cron secret comparison uses `!==`, not constant-time (carried forward from W2-PR5)
 
-Option 1 is the lowest-risk path and does not require app changes. PR 6
-can add a one-paragraph "Operational notes" section to the README that
-documents the chosen approach once the user picks one.
+Same as in the prior apply-progress. Fix is a 3-line edit to
+`route.ts`; PR 6 defers it because it is not on the test-driven
+slice the user asked for.
 
-### I8 — `Database` stub still missing the `reminder_dispatches` foreign-key `referencedRelation` cross-link
+### I12 — `loadReminderContext` requires service-role client (carried forward from W3-PR5)
 
-The hand-maintained `database.types.ts` lists the relationship as
-`referencedRelation: "applications"`, which matches the FK in
-`001_initial_schema.sql` (`reminder_dispatches.application_id references
-applications(id) on delete cascade`). PR 6's `supabase gen types` run
-will confirm; no code change required.
+Same as in the prior apply-progress. Defer to a follow-up slice.
 
 ## Workload / PR Boundary
 
@@ -418,51 +352,79 @@ will confirm; no code change required.
 |-------|-------|
 | Delivery mode | feature-branch-chain (user-selected) |
 | Chain strategy | feature-branch-chain |
-| Current work unit | Reminders + Dashboard (PR 5 of 7) |
-| Branch | `feat/pr5-reminders-dashboard` (work) → `feature/gestjobs-mvp` (tracker) |
-| PR 5 source diff | 7 new files + 2 modified (`package.json`, `src/lib/supabase/database.types.ts`) + 1 new config (`vercel.json`); +1239 / -1 in tracked files |
-| 400-line review budget impact | **Over budget** (≈ 1,239 net lines). The user-selected `feature-branch-chain` strategy chose to keep PR 5 as one autonomous slice; the work-unit-commits pattern splits the diff into six reviewable commits so no single commit exceeds ≈ 430 lines. |
-| Start state | `feature/gestjobs-mvp` at `5567a43` (cumulative PR 1 + PR 2 + PR 3 + PR 4 + Supabase project-ref docs) |
-| Finish state | `feat/pr5-reminders-dashboard` carries reminders scheduling + Resend dispatch + cron route + dashboard; `pnpm build` succeeds with 10 routes; static verification + pure-function sanity-checks pass |
-| Verification | Static checks pass (install + typecheck + build + audit); runtime runbook deferred to PR 6 |
-| Rollback | `git revert` the merge of `feat/pr5-reminders-dashboard` into `feature/gestjobs-mvp`. PR 5 introduces one migration (`003_reminder_trigger.sql`) and a unique partial index; both must be reverted alongside the application code. The cron route returns 410 on GET so a reverted deployment still responds coherently. |
+| Current work unit | Verification + Tooling (PR 6 of 7) |
+| Branch | `feat/pr6-verification` (work) → `feature/gestjobs-mvp` (tracker) |
+| PR 6 source diff (cumulative docs + code) | 13 modified, 8 new files; ≈3,100 net lines (test suite dominates at ≈1,500 lines + README rewrite at +266 + smoke checklist +192 + CI workflow +99 + Vitest config + tooling ≈+200 lines) |
+| 400-line review budget impact | **Over budget** (≈3,100 net lines). User-selected `feature-branch-chain` keeps PR 6 as one autonomous slice; the 4-commit work-unit pattern + the additive nature of PR 6 (lint config, Vitest harness, CI, README, smoke doc) keeps the diff reviewing-friendly when read by commit, not by file. |
+| Start state | `feature/gestjobs-mvp` at `37b62eb` (cumulative PR 1–5 + Supabase project-ref docs + PR 8 merge of PR 5) |
+| Finish state | `feat/pr6-verification` carries the test runner, ESLint config, CI workflow, README + smoke checklist + openspec config; static pipeline green; tracker + lint config + 63 unit tests in place for first runtime deploy |
+| Verification | Static checks all green in the PR 6 branch (install + typecheck + lint + test + build + audit + secrets + conflicts); runtime runbook documented in `docs/smoke-tests.md` and `README.md` |
+| Rollback | `git revert` the merge of `feat/pr6-verification` into `feature/gestjobs-mvp`. None of the PR 6 changes touch application code, the database, or Supabase storage. The lint fix commit (`93b05a1`) re-introduces pre-existing warnings, which the CI gate then surfaces as failures (a feature, not a bug). The `pnpm-workspace.yaml` migration reverts cleanly by deleting the file and restoring the `pnpm.overrides` block in `package.json`. |
 
 ## Discovery Save
 
 Project-level learnings saved to Engram under `project=gestjobs`:
-- PR 4 work-unit structure (validation+types → actions → list+form → detail → docs) keeps each commit reviewable even when the PR exceeds the 400-line budget
-- Server Actions in the same `"use server"` file can share helpers but must export only async functions; types and zod schemas must live elsewhere
-- PR 5 pure-function helper (`computeNextReminderAt`) plus a mirrored SQL function (`public.compute_next_reminder_at`) gives us two implementations of the same spec contract — one for the trigger, one for testing. Keeping them 1-for-1 avoids the "TS says one thing, SQL says another" drift that bites reminder logic after a refactor.
-- The Resend SDK's `idempotencyKey` plus a partial unique index on `reminder_dispatches` is the right three-layer defense for "send at most one email per application per day": DB rejects duplicate inserts, Resend deduplicates retries, the cron + dashboard both filter already-dispatched rows out of their queries.
-- Vercel cron GET-only is a real constraint when the spec mandates POST; documented I7 so the deployment-time decision is explicit.
+- The Vitest 2 runner pairs naturally with Node 22's WHATWG `File`
+  global — no jsdom or polyfill required for the file-validation
+  tests; `new File([Uint8Array(16)], name, { type })` works as a
+  stub, with `Object.defineProperty(file, "size", { value: size })`
+  used to set the declared size without allocating gigabytes.
+- `pnpm-workspace.yaml` is the supported home for the `overrides`
+  block in pnpm 9+; the old `pnpm.overrides` location in
+  `package.json` is silently ignored and emits a warning on every
+  install. The migration is a no-op for runtime behaviour but
+  silences the deprecation warning.
+- `eslint-config-next@15.5.21` still ships its config in legacy
+  format despite ESLint 9 preferring flat config. The `next lint`
+  command runs both, but the flat-config migration is queued for
+  Next 16 (when `next lint` is fully removed). Until then, the
+  legacy `.eslintrc.json` works alongside the `extends:
+  ["next/core-web-vitals", "next/typescript"]` recommendation.
+- The Phase 6 hand-off document is the single source of truth for
+  the next deploy's runtime checks — README points at smoke-tests,
+  smoke-tests references the spec/openspec artifacts, openspec
+  config advertises the same pnpm scripts README walks through.
+  Co-versioning them in the same commit (`439b364`) keeps the
+  three documents in lock-step; future docs commits should preserve
+  that pattern.
+- The lint fix commit (`93b05a1`) is the proof that adding ESLint
+  in Phase 6 forced four latent code-quality issues to surface —
+  one of them (the `let response` in `middleware.ts`) was an
+  actual build-breaking error once the lint pipeline ran. PR 6
+  thus closes two real defects (build failure + lint warnings) and
+  one operational issue (interactive `next lint` prompt) in one
+  go.
+
+## Cron Strategy Decision (preserved from PR 5)
+
+The user selected an external cron provider as the deployment strategy.
+The provider must call `POST /api/cron/reminders` daily at `09:00 UTC`
+with `Authorization: Bearer $CRON_SECRET`. Vercel's native cron
+configuration is removed because it sends `GET`, while the protected
+application endpoint is intentionally POST-only. **PR 6 codifies this
+in `README.md § Vercel setup + external cron strategy`** so the first
+deploy follows the documented path.
 
 ## Next Steps for Orchestrator
 
-1. Push `feat/pr5-reminders-dashboard` when explicitly requested; do not open or merge yet.
-2. Open the PR against `feature/gestjobs-mvp` when requested. Title suggestion:
-   `feat(reminders): add 15-day reminder scheduling + Resend email + cron + dashboard`.
-   Body should call out the 1,239-line scope (above the 400-line budget by
-   user-accepted `feature-branch-chain` strategy), the static-vs-runtime
-   verification split, and the Vercel cron GET-vs-POST constraint (I7).
-3. PR 6 depends on PR 5 (the new `reminder_dispatches` schema, the
-   `003_reminder_trigger.sql` migration, and the cron route all live on
-   the PR 5 branch). Sequence: merge PR 5 → branch `feat/pr6-verification`
-   off the updated tracker.
-4. PR 6 must add Vitest unit tests for `inferPlatformFromUrl`,
-   `normalizeHostname`, `computeNextReminderAt`, `reminderIdempotencyKey`,
-   and the new Zod schemas; add ESLint config (closes I4); migrate
-   `pnpm.overrides` to `pnpm-workspace.yaml` (closes I5); and replace
-   the hand-maintained `database.types.ts` with the generated output.
-5. PR 6 should also document the chosen cron strategy (external cron
-   service vs Vercel middleware proxy vs loosened spec) in the README's
-   "Operational notes" section — I7 needs a deploy-time decision.
-6. Provision Supabase + Resend and run the deferred runtime matrix
-    (cron POST 200, dashboard query, email dispatch).
-
-## Cron Strategy Decision
-
-The user selected an external cron provider as the deployment strategy. The
-provider must call `POST /api/cron/reminders` daily at `09:00 UTC` with
-`Authorization: Bearer $CRON_SECRET`. Vercel's native cron configuration was
-removed because it sends `GET`, while the protected application endpoint is
-intentionally POST-only.
+1. Push `feat/pr6-verification` only when explicitly requested; do not
+   open or merge yet (delivery_strategy = `ask-always`).
+2. Open the PR against `feature/gestjobs-mvp` when requested. Title
+   suggestion: `chore(verification): add Vitest + ESLint + CI + README
+   + smoke checklist for Phase 6`. Body should call out the 3,100-line
+   scope (above the 400-line budget by user-accepted `feature-branch-
+   chain` strategy), the static-vs-runtime verification split (with
+   `docs/smoke-tests.md` as the runtime runbook), and the deployment-
+   time decisions the user owns (Supabase project creation, Resend
+   domain verification, external cron provider URL config).
+3. PR 7 (Publication) is the final slice. It depends on PR 6's docs
+   (`README.md` + `LICENSE` + `CODE_OF_CONDUCT.md`) and the maintainer's
+   account decisions (GitHub org / repo name / visibility). The
+   publish-time checklist (`tasks.md § 7.1–7.8`) is documented and
+   ready; PR 7 may run `sdd-apply` straight against the merged PR 6
+   + PR 5 tracker.
+4. Provision Supabase + Resend and walk through
+   `docs/smoke-tests.md` row-by-row. Stamp each 🔁 row with the date
+   it passes; flip 🟡 rows once the runtime service is wired. This is
+   the only outstanding gate for full spec compliance before
+   publication.
