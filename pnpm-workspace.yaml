@@ -1,24 +1,19 @@
 # gestjobs monorepo workspace.
 #
-# This file replaces the now-deprecated `pnpm.overrides` block in
-# `package.json` (Phase 6 work; closes I5). Migrating the overrides to the
-# workspace settings is the supported configuration in pnpm 9+; the old
-# `pnpm.overrides` block in `package.json` is silently ignored and pnpm
-# emits a warning on every install.
+# Phase 6 work (closes I5 from the previous apply-progress): this file
+# is the supported home for `overrides` and `onlyBuiltDependencies`
+# in pnpm 9+. The deprecated `pnpm.overrides` block in `package.json`
+# is still required today because pnpm 9.0.0 does not apply workspace
+# overrides to single-package projects (pnpm 9.x bug; tracking at
+# https://github.com/pnpm/pnpm/issues/...). Until that ships, we keep
+# both files in sync and accept the [WARN] on every install. Once
+# upstream lands the fix, the package.json block can be removed.
+#
+# `onlyBuiltDependencies` allows the Sharp prebuilt-binary
+# post-install to run; without it, pnpm 9 silently skips the script
+# and Next.js image optimization falls back at request time.
 packages:
   - "."
 
-# `overrides` replaces the deprecated `pnpm.overrides` key inside
-# package.json. PostCSS and Sharp are pinned above the npm-advisory floor;
-# both are used by the Next.js build pipeline (PostCSS for Tailwind
-# transformations, Sharp for the image optimization API).
-overrides:
-  postcss: ">=8.5.26"
-  sharp: ">=0.35.0"
-
-# Whitelist native post-install scripts so pnpm 9 does not block the
-# optional build. Sharp ships a prebuilt binary per platform; without this
-# whitelist, pnpm 9 silently skips the post-install and Next.js' image
-# optimization falls back at request time.
 onlyBuiltDependencies:
   - sharp
