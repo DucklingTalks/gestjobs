@@ -457,4 +457,12 @@ Project-level learnings saved to Engram under `project=gestjobs`:
    service vs Vercel middleware proxy vs loosened spec) in the README's
    "Operational notes" section — I7 needs a deploy-time decision.
 6. Provision Supabase + Resend and run the deferred runtime matrix
-   (cron POST 200, dashboard query, email dispatch).
+    (cron POST 200, dashboard query, email dispatch).
+
+## Cron Strategy Decision
+
+The user selected an external cron provider as the deployment strategy. The
+provider must call `POST /api/cron/reminders` daily at `09:00 UTC` with
+`Authorization: Bearer $CRON_SECRET`. Vercel's native cron configuration was
+removed because it sends `GET`, while the protected application endpoint is
+intentionally POST-only.
