@@ -285,3 +285,7 @@ Full per-scenario checklist (every spec scenario mapped to a static check or run
 ## License
 
 MIT (added in PR 7 — Publication phase).
+
+## Service Provisioning
+
+Follow the [service provisioning guides](docs/services/README.md) for Supabase, Resend, Vercel, and GitHub Actions.
