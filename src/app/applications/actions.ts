@@ -40,15 +40,14 @@ import { inferPlatformFromUrl, normalizeHostname, type Platform } from "@/lib/pl
 import {
   applicationContactAttachSchema,
   applicationContactDetachSchema,
-  applicationContactIdSchema,
   applicationIdSchema,
   applicationInputSchema,
   applicationPlatformUrlSchema,
   applicationResumeAttachSchema,
-  applicationResumeIdSchema,
   applicationStatusChangeSchema,
-  applicationStatusIdSchema,
   applicationUpdateSchema,
+  type ApplicationInput,
+  type ApplicationUpdateInput,
   validateProposalFile,
 } from "@/lib/validation/application";
 
@@ -194,9 +193,7 @@ function parseApplicationForm(
   includeId: boolean,
 ):
   | {
-      input:
-        | import("@/lib/validation/application").ApplicationInput
-        | import("@/lib/validation/application").ApplicationUpdateInput;
+      input: ApplicationInput | ApplicationUpdateInput;
       error: null;
     }
   | { input: null; error: string } {
@@ -346,7 +343,10 @@ async function saveProposalFile(
   }
 
   const bytes = Buffer.from(await file.arrayBuffer());
-  const fileHash = createHash("sha256").update(bytes).digest("hex");
+  // The proposal schema does not persist a hash today (no dedup column on
+  // `applications`). The hash is left here intentionally as a one-line
+  // invariant for the dedup work tracked in task 4.10.
+  void createHash("sha256").update(bytes).digest("hex");
   const extension = file.type === "application/pdf" ? "pdf" : "docx";
   const safeBaseName = file.name
     .replace(/\.[^.]+$/, "")
@@ -396,7 +396,7 @@ export async function createApplication(formData: FormData) {
     redirectWithError("/applications/new", platform.error);
   }
 
-  const input = parsed.input as import("@/lib/validation/application").ApplicationInput;
+  const input = parsed.input as ApplicationInput;
 
   // Insert without the proposal file path; we need the application id to
   // build the storage path.
@@ -483,7 +483,7 @@ export async function updateApplication(formData: FormData) {
     redirectWithError(`/applications/${target}`, parsed.error);
   }
 
-  const update = parsed.input as import("@/lib/validation/application").ApplicationUpdateInput;
+  const update = parsed.input as ApplicationUpdateInput;
 
   const { supabase, user, error: authError } = await requireUser();
   if (!supabase || !user) {
