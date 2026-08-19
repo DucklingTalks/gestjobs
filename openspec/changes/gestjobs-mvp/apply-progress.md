@@ -245,7 +245,7 @@ A 5th commit (the apply-progress record itself) follows this round.
 
 | Check | Command | Result |
 |-------|---------|--------|
-| Lockfile install | `pnpm install --frozen-lockfile` | `Already up to date`; no `pnpm.overrides` deprecation warning (I5 closed) |
+| Lockfile install | `pnpm install --frozen-lockfile` | `Already up to date`; cosmetic `pnpm.overrides` warning remains (I5 mitigated) |
 | Typecheck | `pnpm typecheck` | 0 errors |
 | Lint | `pnpm lint` | `✔ No ESLint warnings or errors` (exit 0; I4 closed) |
 | Unit tests | `pnpm test` | 3 files, **63/63 pass** in ≈52 ms |
@@ -316,13 +316,15 @@ The `pnpm lint` script ran `next lint`, which deprecated in Next.js
 `.eslintrc.json` + `.eslintignore` and now `pnpm lint` exits 0
 instead of prompting. See commit `5292dcc` for the config.
 
-### I5 (closed) — `pnpm.overrides` deprecation warning
+### I5 (mitigated) — `pnpm.overrides` deprecation warning
 
-The old `pnpm` field in `package.json` is silently ignored by pnpm
-9, emitting a warning on every install. PR 6 migrates the overrides
-(`postcss`, `sharp`) to `pnpm-workspace.yaml`, the supported
-configuration per pnpm 9+. The `onlyBuiltDependencies` whitelist
-adds `sharp` so pnpm runs its prebuilt-binary post-install step.
+The old `pnpm` field in `package.json` emits a warning on every install.
+The overrides (`postcss`, `sharp`) must remain in `package.json` for the
+current pnpm 9 single-package workspace behavior; moving them exclusively to
+`pnpm-workspace.yaml` reintroduces vulnerable transitive versions. The
+`onlyBuiltDependencies` whitelist in `pnpm-workspace.yaml` adds `sharp` so
+pnpm runs its prebuilt-binary post-install step. The audit risk is mitigated;
+the cosmetic warning remains until pnpm fixes override propagation.
 
 ### I9 (carried forward) — `database.types.ts` is still hand-maintained
 
