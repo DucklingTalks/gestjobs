@@ -10,7 +10,8 @@ A personal job-application tracker that keeps every role, status change, contact
 
 ```bash
 # 1. Prerequisites: Node >= 20, pnpm 9, accounts on Supabase / Resend / Vercel.
-#    See docs/requirements.md for the full checklist.
+#    See docs/local-development.md for the install-and-run guide,
+#    and docs/requirements.md for the account provisioning checklist.
 
 # 2. Install
 pnpm install --frozen-lockfile
@@ -267,6 +268,7 @@ Full per-scenario checklist (every spec scenario mapped to a static check or run
 | [Design](openspec/changes/gestjobs-mvp/design.md) | Architecture, data flow, decisions |
 | [Tasks](openspec/changes/gestjobs-mvp/tasks.md) | Hierarchical implementation plan (Phase 1–7) |
 | [Smoke checklist](docs/smoke-tests.md) | Per-spec-scenario verification |
+| [Local development guide](docs/local-development.md) | Install, env, migrations, smoke tests, and common failures |
 | [Setup guide](docs/requirements.md) | Prereqs + Supabase / Resend / Vercel provisioning |
 
 ## Module specifications
