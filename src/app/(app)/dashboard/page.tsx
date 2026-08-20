@@ -145,17 +145,18 @@ export default async function DashboardPage({
                         {reminder.platform_name}
                       </span>
                     ) : null}
-                    <a
-                      href={reminder.platform_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="truncate text-accent-700 hover:text-accent-800"
-                      onClick={(event) => event.stopPropagation()}
-                    >
-                      {reminder.platform_url}
-                    </a>
                   </div>
                 </Link>
+                <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-slate-600">
+                  <a
+                    href={reminder.platform_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="truncate text-accent-700 hover:text-accent-800"
+                  >
+                    {reminder.platform_url}
+                  </a>
+                </div>
               </li>
             ))}
           </ul>

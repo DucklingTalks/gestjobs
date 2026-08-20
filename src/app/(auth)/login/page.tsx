@@ -1,5 +1,7 @@
 import { headers } from "next/headers";
+import { redirect } from "next/navigation";
 
+import { createClient } from "@/lib/supabase/server";
 import { signInWithOtp } from "./actions";
 
 type SearchParams = {
@@ -12,10 +14,23 @@ export default async function LoginPage({
 }: {
   searchParams: Promise<SearchParams>;
 }) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (user) redirect("/dashboard");
+
   const { error, status } = await searchParams;
   const headerStore = await headers();
-  const origin =
-    headerStore.get("x-forwarded-host") ?? headerStore.get("host") ?? "";
+  const host = headerStore.get("x-forwarded-host") ?? headerStore.get("host") ?? "";
+  const protocol = headerStore.get("x-forwarded-proto") ?? "http";
+
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL;
+  const origin = appUrl
+    ? appUrl.replace(/\/$/, "")
+    : host
+      ? `${protocol}://${host}`
+      : "";
 
   return (
     <main className="mx-auto flex min-h-screen max-w-md flex-col justify-center px-6 py-16">

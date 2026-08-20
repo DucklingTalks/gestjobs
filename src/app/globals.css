@@ -16,3 +16,30 @@ body {
   font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
     "Helvetica Neue", Arial, sans-serif;
 }
+
+@layer base {
+  :where(input[type="text"]),
+  :where(input[type="email"]),
+  :where(input[type="url"]),
+  :where(input[type="password"]),
+  :where(input[type="number"]),
+  :where(input[type="tel"]),
+  :where(input[type="search"]),
+  :where(input[type="date"]),
+  :where(input[type="datetime-local"]),
+  :where(textarea),
+  :where(select) {
+    @apply rounded-md border border-slate-300 bg-white px-3 py-2 text-base text-slate-900 shadow-sm;
+  }
+
+  :where(input)::placeholder,
+  :where(textarea)::placeholder {
+    @apply text-slate-400;
+  }
+
+  :where(input:focus),
+  :where(textarea:focus),
+  :where(select:focus) {
+    @apply border-accent-500 outline-none ring-2 ring-accent-500;
+  }
+}
