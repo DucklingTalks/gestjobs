@@ -26,11 +26,9 @@ export default async function LoginPage({
   const protocol = headerStore.get("x-forwarded-proto") ?? "http";
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL;
-  const origin = appUrl
-    ? appUrl.replace(/\/$/, "")
-    : host
-      ? `${protocol}://${host}`
-      : "";
+  const requestOrigin = host ? `${protocol}://${host}` : "";
+  const configuredOrigin = appUrl?.replace(/\/$/, "") ?? "";
+  const origin = requestOrigin || configuredOrigin;
 
   return (
     <main className="mx-auto flex min-h-screen max-w-md flex-col justify-center px-6 py-16">
