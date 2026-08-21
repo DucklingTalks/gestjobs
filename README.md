@@ -286,7 +286,7 @@ Full per-scenario checklist (every spec scenario mapped to a static check or run
 
 ## License
 
-MIT (added in PR 7 — Publication phase).
+MIT License — see [LICENSE](LICENSE).
 
 ## Service Provisioning
 

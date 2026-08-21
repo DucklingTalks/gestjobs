@@ -2,7 +2,7 @@
 
 This guide covers everything needed to run **gestjobs** locally and deploy it. Read it once, check the boxes, and you are ready to code.
 
-> **Scope:** Foundation is implemented; later MVP slices (Applications, Platforms, Reminders, Dashboard, etc.) are deferred to upcoming PRs. This document reflects what you need **today** plus the accounts required for those future phases.
+> **Scope:** MVP implementation (Phases 1–6) and CI are complete. Runtime Supabase, Resend, and Vercel checks are validated where applicable. This document reflects the full provisioning checklist for local development, deployment, and the final publication steps.
 
 ---
 
@@ -42,18 +42,20 @@ Resend sends transactional reminder emails.
 | Verify domain | Add and verify a sending domain (e.g., `your-domain.com`) |
 | Generate API key | Dashboard → API Keys → create a key starting with `re_` |
 
-> **Deferred:** No email features exist until PR 5. You can skip Resend until then, but creating the account early avoids blocking later work.
+> **Status:** Reminder scheduling and email dispatch are implemented (Phase 5). Resend is required for runtime verification of the cron endpoint.
 
 ### 3. Vercel (required for deployment)
 
-Vercel hosts the Next.js app and runs the cron job for reminders.
+Vercel hosts the Next.js app.
 
 | Step | Action |
 |------|--------|
 | Create account | [vercel.com](https://vercel.com) → Sign up (free Hobby tier is sufficient) |
 | Link project | Import the GitHub repo, or use `vercel` CLI to link an existing project |
 | Add env vars | Copy every variable from `.env.local` into Vercel Project Settings → Environment Variables |
-| Enable cron | PR 5 adds `vercel.json` with `"0 9 * * *"` schedule; no cron exists today |
+| Deploy branch | `feature/gestjobs-mvp` is the active deployment branch |
+
+> **Production cron:** The reminder endpoint is POST-only and is triggered by an external cron service (e.g., cron-job.org or GitHub Actions). Vercel native cron fires GET requests, which the route rejects by design. Production cron scheduling is intentionally deferred until a verified custom domain and adequate Resend quota are in place.
 
 ---
 
@@ -67,7 +69,7 @@ Run these from the repo root after prerequisites are satisfied.
 | `pnpm dev` | Start Next.js dev server on `:3000` | Every coding session |
 | `pnpm build` | Production build with static prerendering | Before pushing, or to verify bundle |
 | `pnpm typecheck` | TypeScript check without emit | Before every PR |
-| `pnpm lint` | ESLint pass (config deferred to PR 6) | After PR 6 lands |
+| `pnpm lint` | ESLint pass | Before every PR |
 | `pnpm start` | Serve the production build locally | After `pnpm build` |
 
 ---
@@ -131,14 +133,10 @@ After creating a Supabase project, apply the schema and seed data.
 
 ## What is deferred to later implementation phases
 
-| Feature | Planned PR | What is missing today |
-|---------|-----------|----------------------|
-| Platform inference + combobox | PR 2 | No `infer.ts`, no combobox component, no custom platform upsert |
-| Contacts directory + Resumes | PR 3 | No contact/resume pages, no upload actions |
-| Applications CRUD + status workflow | PR 4 | No application list, create form, detail view, or status history |
-| Reminder scheduling + email | PR 5 | No reminder trigger, no Resend integration, no cron route, no dashboard |
-| Testing + CI | PR 6 | No Vitest, no ESLint config, no GitHub Actions workflow |
-| Publication | PR 7 | No public repo, no LICENSE, no release tag |
+| Feature | Status | Notes |
+|---------|--------|-------|
+| Production cron scheduling | Intentionally deferred | Awaiting a verified custom domain and adequate Resend quota before enabling live daily dispatch |
+| Publication | Checklist remaining | Release tag and branch protection |
 
 ---
 
