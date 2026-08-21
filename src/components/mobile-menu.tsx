@@ -8,7 +8,13 @@ type NavLink = {
   label: string;
 };
 
-export function MobileMenu({ links }: { links: NavLink[] }) {
+export function MobileMenu({
+  links,
+  signOutAction,
+}: {
+  links: NavLink[];
+  signOutAction: () => Promise<void>;
+}) {
   const [open, setOpen] = useState(false);
 
   return (
@@ -61,6 +67,17 @@ export function MobileMenu({ links }: { links: NavLink[] }) {
                   </Link>
                 </li>
               ))}
+              <li>
+                <form action={signOutAction}>
+                  <button
+                    type="submit"
+                    className="block w-full rounded-md px-3 py-2 text-left text-sm font-medium text-slate-700 hover:bg-slate-50"
+                    onClick={() => setOpen(false)}
+                  >
+                    Log out
+                  </button>
+                </form>
+              </li>
             </ul>
           </nav>
         </div>

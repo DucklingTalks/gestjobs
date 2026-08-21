@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import Link from "next/link";
 
 import { MobileMenu } from "@/components/mobile-menu";
+import { signOut } from "./actions";
 
 const navLinks = [
   { href: "/dashboard", label: "Dashboard" },
@@ -37,6 +38,16 @@ export default function AppLayout({ children }: { children: ReactNode }) {
             ))}
           </ul>
         </nav>
+        <div className="px-4 py-4">
+          <form action={signOut}>
+            <button
+              type="submit"
+              className="block w-full rounded-md px-3 py-2 text-left text-sm font-medium text-slate-700 hover:bg-slate-50"
+            >
+              Log out
+            </button>
+          </form>
+        </div>
       </aside>
 
       {/* Main content area */}
@@ -49,7 +60,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
           >
             gestjobs
           </Link>
-          <MobileMenu links={navLinks} />
+          <MobileMenu links={navLinks} signOutAction={signOut} />
         </header>
         {children}
       </div>
