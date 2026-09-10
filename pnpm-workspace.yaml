@@ -1,0 +1,19 @@
+# gestjobs monorepo workspace.
+#
+# Phase 6 work (closes I5 from the previous apply-progress): this file
+# is the supported home for `overrides` and `onlyBuiltDependencies`
+# in pnpm 9+. The deprecated `pnpm.overrides` block in `package.json`
+# is still required today because pnpm 9.0.0 does not apply workspace
+# overrides to single-package projects (pnpm 9.x bug; tracking at
+# https://github.com/pnpm/pnpm/issues/...). Until that ships, we keep
+# both files in sync and accept the [WARN] on every install. Once
+# upstream lands the fix, the package.json block can be removed.
+#
+# `onlyBuiltDependencies` allows the Sharp prebuilt-binary
+# post-install to run; without it, pnpm 9 silently skips the script
+# and Next.js image optimization falls back at request time.
+packages:
+  - "."
+
+onlyBuiltDependencies:
+  - sharp

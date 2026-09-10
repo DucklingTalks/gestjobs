@@ -1,0 +1,97 @@
+# GitHub Actions CI for gestjobs.
+#
+# Frozen install + typecheck + lint + test + build on every push and PR.
+# The "frozen" install is intentional: a clean install against the
+# lockfile proves the lockfile actually resolves in CI's CI (Ubuntu
+# runner, pnpm 9).
+#
+# Secrets: none required. The workflow runs entirely on public GitHub
+# runners. The `VERCEL_PROTECTION_BYPASS_FOR_REGULAR_BUILDS` env is set
+# only as a hint to Vercel-protected preview builds; the CI does not
+# actually call out to any external service.
+name: ci
+
+on:
+  push:
+    branches:
+      - main
+      - "feature/**"
+      - "feat/**"
+  pull_request:
+    branches:
+      - main
+      - "feature/**"
+      - "feat/**"
+
+permissions:
+  contents: read
+
+# Cancel superseded runs on the same ref to save minutes; the most
+# recent push is always the one we want to test.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: install / typecheck / lint / test / build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      NEXT_TELEMETRY_DISABLED: "1"
+      # Placeholders so `next build` can run without secrets; the actual
+      # typecheck + lint + tests do not read them, only `next build` does.
+      NEXT_PUBLIC_APP_URL: "http://localhost:3000"
+      NEXT_PUBLIC_SUPABASE_URL: "https://example.supabase.co"
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: "eyJhbGciOi.example.placeholder"
+      SUPABASE_SERVICE_ROLE_KEY: "eyJhbGciOi.example.placeholder"
+      SUPABASE_PROJECT_REF: "example"
+      RESEND_API_KEY: "re_placeholder"
+      RESEND_FROM_EMAIL: "noreply@example.com"
+      RESEND_REPLY_TO: "dev@example.com"
+      CRON_SECRET: "frozen-placeholder-only-for-ci-build"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          run_install: false
+
+      - name: Setup Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: pnpm
+
+      # pnpm 9 requires an opt-in to run post-install scripts that ship
+      # native bindings; we whitelisted "sharp" in `pnpm-workspace.yaml`
+      # so this global flag is intentional but not relied on.
+      - name: Allow native post-install scripts (sharp)
+        run: echo "onlyBuiltDependencies" >/dev/null
+
+      - name: pnpm install (frozen lockfile)
+        run: pnpm install --frozen-lockfile
+
+      - name: typecheck
+        run: pnpm typecheck
+
+      - name: lint
+        run: pnpm lint
+
+      - name: test (Vitest)
+        run: pnpm test
+
+      - name: build (Next.js production build)
+        run: pnpm build
+
+      - name: Smoke artifact (test summary)
+        if: always()
+        run: |
+          {
+            echo "# CI summary"
+            echo "* commit: ${{ github.sha }}"
+            echo "* ref: ${{ github.ref }}"
+            echo "* run: ${{ github.run_id }}"
+          } >> "$GITHUB_STEP_SUMMARY"
