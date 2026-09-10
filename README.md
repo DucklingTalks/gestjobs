@@ -2,7 +2,7 @@
 
 A personal job-application tracker that keeps every role, status change, contact, resume version, and follow-up reminder in one place — so nothing falls through the cracks.
 
-> **Current status (Phase 6 — Verification + Tooling):** six MVP slices ship in this repo: Foundation (PR 1, merged), Platforms (PR 2, merged), Contacts + Resumes (PR 3, merged), Applications + Status Workflow (PR 4, merged via PR #6), Reminders + Dashboard (PR 5, merged via PR #8), and Verification + Tooling (PR 6 — this branch). Phase 7 publishes the repo to a new GitHub org once the runtime Supabase + Resend + Vercel accounts are provisioned.
+> **Current status:** The MVP is implemented, tested, and ready to run with Supabase, Resend, and Vercel.
 
 ---
 
@@ -36,28 +36,64 @@ The static pipeline above runs in CI on every push and PR (`.github/workflows/ci
 
 ---
 
+## Environment setup
+
+Copy `.env.example` to `.env.local` and fill in real values. `.env.local` is gitignored.
+
+| Variable | Source | Used by |
+|----------|--------|---------|
+| `NEXT_PUBLIC_APP_URL` | Set to `http://localhost:3000` locally; your preview URL on Vercel | App links |
+| `NEXT_PUBLIC_SUPABASE_URL` | Supabase Dashboard → Project Settings → API | Client + server |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase Dashboard → Project Settings → API | Client + server |
+| `SUPABASE_SERVICE_ROLE_KEY` | Supabase Dashboard → Project Settings → API | **Server only** — cron route uses it to bypass RLS |
+| `SUPABASE_PROJECT_REF` | Project URL slug | Supabase CLI |
+| `RESEND_API_KEY` | Resend → API Keys | Reminder dispatch |
+| `RESEND_FROM_EMAIL` | A verified Resend sender | Reminder email `from` |
+| `RESEND_REPLY_TO` | Optional. Your email address | Reminder email `reply-to` |
+| `CRON_SECRET` | `openssl rand -hex 32` | Auth gate for `POST /api/cron/reminders` |
+
+> **Security:** never commit `.env.local` or real keys. Rotate leaked credentials immediately. The service-role key is only ever used in `src/app/api/cron/reminders/route.ts` and never crosses the client bundle.
+
+### Supabase setup
+
+1. Create a project at [supabase.com/dashboard](https://supabase.com/dashboard). Note the **Project ref** and **Project URL**.
+2. Pull the API keys from Dashboard → Project Settings → API.
+3. Apply the migrations:
+   ```bash
+   supabase link --project-ref <your-project-ref>
+   supabase db push
+   ```
+4. Configure Auth → URL Configuration → Site URL = `http://localhost:3000` for local development.
+
+### Resend setup
+
+1. Create an account at [resend.com](https://resend.com).
+2. Add and verify a sending domain.
+3. Generate an API key and configure `RESEND_FROM_EMAIL`.
+
+### Vercel setup + external cron strategy
+
+The reminder endpoint is **POST-only**, while Vercel native cron sends **GET** requests. Use an external cron provider.
+
+1. Import this repository into Vercel.
+2. Copy the environment variables into Vercel Project Settings → Environment Variables.
+3. Configure the external cron provider (for example, [cron-job.org](https://cron-job.org)):
+   - **URL:** `https://<your-vercel-domain>/api/cron/reminders`
+   - **Method:** `POST`
+   - **Header:** `Authorization: Bearer <CRON_SECRET>`
+   - **Schedule:** `0 9 * * *` (09:00 UTC daily)
+
+---
+
 ## What ships in this repo
 
-| Capability | Status | Phase | Notes |
-|------------|--------|-------|-------|
-| Next.js 15 App Router scaffold | ✅ Live | PR 1 | Home page + login + dashboard + 8 protected routes |
-| Magic-link authentication | ✅ Live | PR 1 | Supabase Auth `signInWithOtp`; cookie-based SSR session |
-| Postgres schema + RLS | ✅ Live | PR 1 | 9 tables, per-user RLS via `is_owner()` helper |
-| Storage buckets + RLS | ✅ Live | PR 1 | `resumes` + `proposals`, 10 MB MIME-allow-listed |
-| Global platform seed | ✅ Live | PR 1 | 10 Latin-American boards preloaded |
-| Platform hostname inference | ✅ Live | PR 2 | Pure TS helpers; exact + suffix match |
-| Platform combobox + custom persistence | ✅ Live | PR 2 | ARIA combobox + `upsertCustomPlatform` Server Action |
-| Contacts directory + Resumes versioning | ✅ Live | PR 3 | CRUD, 1-hour signed URLs, SHA-256 metadata |
-| Applications CRUD + status workflow + history | ✅ Live | PR 4 | Immutable history, mandatory platform URL, proposal capture (text/file/URL) |
-| Reminder scheduling + Resend email dispatch | ✅ Live | PR 5 | 15-day cadence, idempotent per-day dispatch, protected cron endpoint |
-| Dashboard counters + pending list | ✅ Live | PR 5 | Status counters + sorted `next_reminder_at ASC` list |
-| Verification + tooling (this PR) | ✅ Live | PR 6 | Vitest, ESLint config, CI, README, smoke checklist |
-
-## MVP slices still to land
-
-| Slice | Phase | What it covers |
-|-------|-------|----------------|
-| Publication | PR 7 | Public repo, LICENSE, branch protection, first release tag |
+| Area | Included |
+|------|----------|
+| Authentication and security | Magic-link auth, SSR sessions, Postgres RLS, private storage, and scoped service-role access |
+| Job tracking | Applications CRUD, statuses, immutable history, platform URLs, and proposal capture |
+| Platforms and contacts | Seeded platform catalog, hostname inference, custom platforms, contacts, and resume versioning |
+| Reminders and dashboard | Scheduled reminders, idempotent Resend delivery, protected cron endpoint, counters, and pending list |
+| Developer workflow | Vitest tests, ESLint, CI, smoke-test checklist, and production build |
 
 ---
 
@@ -99,68 +135,6 @@ See [`openspec/changes/gestjobs-mvp/design.md`](openspec/changes/gestjobs-mvp/de
 
 ---
 
-## Environment setup
-
-Copy `.env.example` to `.env.local` and fill in real values. `.env.local` is gitignored.
-
-| Variable | Source | Used by |
-|----------|--------|---------|
-| `NEXT_PUBLIC_APP_URL` | Set to `http://localhost:3000` locally; your preview URL on Vercel | App links |
-| `NEXT_PUBLIC_SUPABASE_URL` | Supabase Dashboard → Project Settings → API | Client + server |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase Dashboard → Project Settings → API | Client + server |
-| `SUPABASE_SERVICE_ROLE_KEY` | Supabase Dashboard → Project Settings → API | **Server only** — cron route uses it to bypass RLS |
-| `SUPABASE_PROJECT_REF` | Project URL slug | Supabase CLI |
-| `RESEND_API_KEY` | Resend → API Keys | Reminder dispatch |
-| `RESEND_FROM_EMAIL` | A verified Resend sender (e.g. `GestJobs <noreply@yourdomain.com>`) | Reminder email `from` |
-| `RESEND_REPLY_TO` | Optional. Your email address | Reminder email `reply-to` |
-| `CRON_SECRET` | `openssl rand -hex 32` | Auth gate for `POST /api/cron/reminders` |
-
-> **Security:** never commit `.env.local` or real keys. Rotate leaked credentials immediately. The service-role key is only ever used in `src/app/api/cron/reminders/route.ts` and never crosses the client bundle.
-
-### Supabase setup
-
-1. Create a project at [supabase.com/dashboard](https://supabase.com/dashboard). Note the **Project ref** and **Project URL**.
-2. Pull request API keys from Dashboard → Project Settings → API → anon / service_role.
-3. Apply the migrations:
-   ```bash
-   supabase link --project-ref <your-project-ref>
-   supabase db push    # applies 001_initial_schema.sql + 002_storage_buckets.sql + 003_reminder_trigger.sql
-   ```
-4. Configure Auth → URL Configuration → Site URL = `http://localhost:3000` for local dev (your preview URL on Vercel for staging).
-5. (Optional but recommended) Regenerate the typed Database stub after migrations:
-   ```bash
-   supabase gen types typescript --linked > src/lib/supabase/database.types.ts
-   ```
-   The committed stub is hand-maintained for development without a Supabase project; the generated output supersedes it once you have a linked project.
-
-The default statuses (`Applied`, `Screening`, `Interview`, `Offer`, `Hired`, `Rejected`, `Withdrawn`) are created automatically for every user by the `create_default_statuses()` trigger in `001_initial_schema.sql` — no separate seed step is needed.
-
-### Resend setup
-
-1. Create an account at [resend.com](https://resend.com).
-2. Add and verify a sending domain (e.g. `yourdomain.com`).
-3. Generate an API key at Dashboard → API Keys.
-4. Set `RESEND_FROM_EMAIL` to a verified sender (e.g. `GestJobs <noreply@yourdomain.com>`).
-5. Optionally set `RESEND_REPLY_TO` to your personal email so reminder replies route back to you.
-
-### Vercel setup + external cron strategy
-
-The protected reminder endpoint is **POST-only by spec**, and Vercel native cron fires **GET requests**. Vercel's native cron cannot call this route without a wrapper, and we deliberately do not loosen the spec. The selected production approach is an **external cron service**.
-
-1. Create a Vercel project and import this GitHub repo.
-2. Copy every variable from `.env.local` into Vercel Project Settings → Environment Variables.
-3. Generate `CRON_SECRET` with `openssl rand -hex 32` and store it in Vercel as a secret.
-4. Configure your external cron provider (e.g. [cron-job.org](https://cron-job.org), GitHub Actions on `schedule: cron: "0 9 * * *"`):
-   - **URL:** `https://<your-vercel-domain>/api/cron/reminders`
-   - **Method:** `POST`
-   - **Headers:** `Authorization: Bearer <CRON_SECRET>`
-   - **Schedule:** `0 9 * * *` (09:00 UTC daily)
-5. Keep `vercel.json` as a fallback schedule; the GET-style Vercel entry returns 410 by design (matches the PR 5 rollback note).
-
-> **Alternative (documented but not selected):** a Vercel middleware / proxy function that listens on GET, translates to POST with the secret, and proxies to the same route. Out of scope for Phase 6; the external cron approach is the lower-overhead path and keeps the route spec intact.
-
----
-
 ## Operational notes
 
 ### Idempotency on reminder dispatch
@@ -195,23 +169,6 @@ When Supabase + Resend + Vercel are provisioned:
 7. Visit `/dashboard` → the dispatched reminder is excluded.
 
 Full per-scenario checklist (every spec scenario mapped to a static check or runtime check) is in [`docs/smoke-tests.md`](docs/smoke-tests.md).
-
----
-
-## Local commands
-
-| Command | Purpose |
-|---------|---------|
-| `pnpm install --frozen-lockfile` | Install from the committed lockfile |
-| `pnpm dev` | Start the Next.js dev server on `:3000` |
-| `pnpm typecheck` | TypeScript check without emit |
-| `pnpm lint` | ESLint (exits 0; legacy config via `eslint-config-next`) |
-| `pnpm test` | Vitest unit tests (one-shot, CI mode) |
-| `pnpm test:watch` | Vitest in interactive watch mode |
-| `pnpm test:coverage` | Vitest with V8 coverage (HTML + JSON summary) |
-| `pnpm build` | Production build (10 routes; static prerender + dynamic) |
-| `pnpm start` | Serve the production build locally |
-| `pnpm audit --prod` | Production-only dependency audit (zero findings today) |
 
 ---
 
@@ -259,18 +216,6 @@ Full per-scenario checklist (every spec scenario mapped to a static check or run
 
 ---
 
-## Planning artifacts
-
-| Document | Purpose |
-|----------|---------|
-| [Proposal](openspec/changes/gestjobs-mvp/proposal.md) | Intent, scope, capabilities, approach, risks |
-| [Exploration](openspec/changes/gestjobs-mvp/exploration.md) | Requirement clarification |
-| [Design](openspec/changes/gestjobs-mvp/design.md) | Architecture, data flow, decisions |
-| [Tasks](openspec/changes/gestjobs-mvp/tasks.md) | Hierarchical implementation plan (Phase 1–7) |
-| [Smoke checklist](docs/smoke-tests.md) | Per-spec-scenario verification |
-| [Local development guide](docs/local-development.md) | Install, env, migrations, smoke tests, and common failures |
-| [Setup guide](docs/requirements.md) | Prereqs + Supabase / Resend / Vercel provisioning |
-
 ## Module specifications
 
 | Module | Spec |
@@ -291,3 +236,9 @@ MIT License — see [LICENSE](LICENSE).
 ## Service Provisioning
 
 Follow the [service provisioning guides](docs/services/README.md) for Supabase, Resend, Vercel, and GitHub Actions.
+
+## MVP slices still to land
+
+| Slice | What it covers |
+|-------|----------------|
+| Publication | First public release, branch protection, and release tag |
