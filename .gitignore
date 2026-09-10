@@ -15,3 +15,5 @@ Thumbs.db
 .cache/
 
 # NOTE: OpenSpec artifacts are intentionally NOT excluded.
+node_modules
+.env.local
