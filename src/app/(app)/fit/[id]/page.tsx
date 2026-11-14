@@ -84,7 +84,17 @@ export default async function FitAnalysisPage({ params }: { params: Promise<{ id
             <CoverLetterEditor id={analysis.id} initial={analysis.cover_letter} />
           </Card>
 
-          <Card title="Tailored CV" description="Built only from your profile, reordered and rephrased for this role.">
+          <Card
+            title="Tailored CV"
+            description="Built only from your profile, reordered and rephrased for this role."
+            actions={
+              cv.success ? (
+                <a href={`/fit/${analysis.id}/cv`} className={buttonStyles.primary} download>
+                  Download PDF
+                </a>
+              ) : null
+            }
+          >
             {cv.success ? (
               <CvPreview cv={cv.data} contact={contact} language={analysis.language} />
             ) : (
