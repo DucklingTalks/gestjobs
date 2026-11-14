@@ -7,7 +7,7 @@
 // Until then, the typed Supabase clients in client.ts and server.ts pick up
 // per-table shapes incrementally. Application code that depends on table
 // shapes adds its table here when it lands (PR 2 added `platforms`, PR 3
-// added `contacts` and `resumes`, PR 4 added the application tables,
+// added `contacts`, PR 4 added the application tables,
 // PR 5 adds `reminder_dispatches`).
 // PR 6 will replace this file with the output of `supabase gen types`.
 
@@ -80,36 +80,6 @@ export interface Database {
         Relationships: [
           {
             foreignKeyName: "contacts_user_id_fkey";
-            columns: ["user_id"];
-            isOneToOne: false;
-            referencedRelation: "users";
-            referencedColumns: ["id"];
-          },
-        ];
-      };
-      resumes: {
-        Row: {
-          id: string;
-          user_id: string;
-          label: string;
-          file_path: string;
-          file_hash: string;
-          file_size: number;
-          created_at: string;
-        };
-        Insert: {
-          id?: string;
-          user_id: string;
-          label: string;
-          file_path: string;
-          file_hash: string;
-          file_size: number;
-          created_at?: string;
-        };
-        Update: Partial<Database["public"]["Tables"]["resumes"]["Insert"]>;
-        Relationships: [
-          {
-            foreignKeyName: "resumes_user_id_fkey";
             columns: ["user_id"];
             isOneToOne: false;
             referencedRelation: "users";
@@ -280,37 +250,6 @@ export interface Database {
             columns: ["contact_id"];
             isOneToOne: false;
             referencedRelation: "contacts";
-            referencedColumns: ["id"];
-          },
-        ];
-      };
-      application_resumes: {
-        Row: {
-          application_id: string;
-          resume_id: string;
-          attached_at: string;
-        };
-        Insert: {
-          application_id: string;
-          resume_id: string;
-          attached_at?: string;
-        };
-        Update: Partial<
-          Database["public"]["Tables"]["application_resumes"]["Insert"]
-        >;
-        Relationships: [
-          {
-            foreignKeyName: "application_resumes_application_id_fkey";
-            columns: ["application_id"];
-            isOneToOne: true;
-            referencedRelation: "applications";
-            referencedColumns: ["id"];
-          },
-          {
-            foreignKeyName: "application_resumes_resume_id_fkey";
-            columns: ["resume_id"];
-            isOneToOne: false;
-            referencedRelation: "resumes";
             referencedColumns: ["id"];
           },
         ];

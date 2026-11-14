@@ -14,8 +14,8 @@ const features = [
     body: "Get an email 15 days after the last status change so no application goes cold.",
   },
   {
-    title: "Contacts & resumes",
-    body: "Link recruiters and the exact resume version you sent to every application.",
+    title: "AI job fit",
+    body: "Score how well you match a role from 1 to 10 and get a cover letter and an ATS-ready CV tailored to it.",
   },
 ];
 
@@ -45,7 +45,7 @@ export default async function HomePage() {
           Track every job application in one place.
         </h1>
         <p className="max-w-xl text-lg text-slate-600">
-          Status history, contacts, resume versions, and follow-up reminders
+          Status history, contacts, follow-up reminders and an AI fit check
           for every role you apply to &mdash; so nothing falls through the
           cracks.
         </p>

@@ -25,8 +25,6 @@ const APPLICATION_MESSAGES: Record<string, string> = {
   deleted: "Application deleted.",
   changed: "Status updated.",
   unchanged: "Status was already up to date.",
-  "resume-attached": "Resume attached.",
-  "resume-detached": "Resume detached.",
   "contact-attached": "Contact linked.",
   "contact-detached": "Contact removed.",
 };
@@ -47,15 +45,10 @@ const FIT_MESSAGES: Record<string, string> = {
   "analysis-deleted": "Analysis deleted.",
 };
 
-const RESUME_MESSAGES: Record<string, string> = {
-  uploaded: "Resume version uploaded.",
-};
-
 const MESSAGES_BY_PATH: Array<[prefix: string, table: Record<string, string>]> = [
   ["/contacts", CONTACT_MESSAGES],
   ["/profile", PROFILE_MESSAGES],
   ["/fit", FIT_MESSAGES],
-  ["/resumes", RESUME_MESSAGES],
 ];
 
 function statusMessage(pathname: string, status: string): string {

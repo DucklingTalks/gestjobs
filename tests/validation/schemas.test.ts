@@ -4,7 +4,6 @@
  * Spec references:
  *   openspec/changes/gestjobs-mvp/specs/applications/spec.md
  *   openspec/changes/gestjobs-mvp/specs/contacts/spec.md
- *   openspec/changes/gestjobs-mvp/specs/resumes/spec.md
  *
  * These tests lock the action-boundary validation that PR 3 + PR 4 +
  * PR 5 rely on. Every Server Action re-parses a form payload with one
@@ -20,13 +19,9 @@ import {
   applicationStatusChangeSchema,
   applicationContactAttachSchema,
   validateProposalFile,
+  MAX_PROPOSAL_FILE_SIZE_BYTES,
 } from "@/lib/validation/application";
 import { contactSchema } from "@/lib/validation/contact";
-import {
-  resumeLabelSchema,
-  validateResumeFile,
-  MAX_RESUME_FILE_SIZE_BYTES,
-} from "@/lib/validation/resume";
 
 const VALID_UUID = "11111111-1111-4111-8111-111111111111";
 
@@ -239,7 +234,7 @@ describe("validateProposalFile (Spec: Applications — Oversized / invalid file 
   it("rejects an oversized file", () => {
     const file = stubFile(
       "proposal.pdf",
-      MAX_RESUME_FILE_SIZE_BYTES + 1,
+      MAX_PROPOSAL_FILE_SIZE_BYTES + 1,
       "application/pdf",
     );
     const result = validateProposalFile(file);
@@ -299,54 +294,5 @@ describe("contactSchema (Spec: Contacts — Validation on create)", () => {
       emptyContact({ linkedin_url: "https://www.linkedin.com/in/jane-doe" }),
     );
     expect(result.success).toBe(true);
-  });
-});
-
-describe("resumeLabelSchema (Spec: Resumes — Upload new resume)", () => {
-  it("accepts a non-empty label", () => {
-    const result = resumeLabelSchema.safeParse("Frontend-Senior");
-    expect(result.success).toBe(true);
-  });
-
-  it("rejects an empty label", () => {
-    const result = resumeLabelSchema.safeParse("");
-    expect(result.success).toBe(false);
-  });
-});
-
-describe("validateResumeFile (Spec: Resumes — Invalid file type / Oversized file rejected)", () => {
-  it("rejects a missing file", () => {
-    const result = validateResumeFile(null);
-    expect(result.success).toBe(false);
-  });
-
-  it("accepts a DOCX resume under the size limit", () => {
-    const file = stubFile(
-      "resume.docx",
-      1_000_000,
-      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-    );
-    const result = validateResumeFile(file);
-    expect(result.success).toBe(true);
-  });
-
-  it("rejects an oversized resume", () => {
-    const file = stubFile(
-      "resume.pdf",
-      MAX_RESUME_FILE_SIZE_BYTES + 1,
-      "application/pdf",
-    );
-    const result = validateResumeFile(file);
-    expect(result.success).toBe(false);
-  });
-
-  it("rejects an executable masquerading as a PDF", () => {
-    const file = stubFile(
-      "resume.exe",
-      1_000,
-      "application/x-msdownload",
-    );
-    const result = validateResumeFile(file);
-    expect(result.success).toBe(false);
   });
 });

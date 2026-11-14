@@ -12,7 +12,6 @@ const navLinks = [
   { href: "/contacts", label: "Contacts" },
   { href: "/profile", label: "Profile" },
   { href: "/fit", label: "Job fit" },
-  { href: "/resumes", label: "Resumes" },
 ];
 
 function Logo() {

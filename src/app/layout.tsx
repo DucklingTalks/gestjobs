@@ -7,7 +7,7 @@ export const metadata: Metadata = {
     template: "%s · gestjobs",
   },
   description:
-    "Track every job application, its status history, contacts, resumes, and reminders in one place.",
+    "Track every job application, its status history, contacts and reminders, and check your fit for each role with AI.",
 };
 
 export const viewport: Viewport = {
