@@ -50,6 +50,12 @@ describe("finalizeCoverLetter", () => {
     expect(finalizeCoverLetter("Hi\n\nBest regards,", "Ana")).toBe("Hi\n\nBest regards,\nAna");
     expect(finalizeCoverLetter("Hi\n\nBest regards,\nAna", "Ana")).toBe("Hi\n\nBest regards,\nAna");
   });
+
+  it("turns single line breaks into paragraphs", () => {
+    expect(finalizeCoverLetter("Estimado equipo:\nPárrafo uno.\nPárrafo dos.\nAtentamente,", "Ana")).toBe(
+      "Estimado equipo:\n\nPárrafo uno.\n\nPárrafo dos.\n\nAtentamente,\nAna",
+    );
+  });
 });
 
 describe("job posting parsing", () => {

@@ -141,7 +141,14 @@ export async function analyzeFit(profile: Profile, jobText: string): Promise<AiR
 
 /** Append the candidate's name under the AI-written sign-off. */
 export function finalizeCoverLetter(letter: string, fullName: string): string {
-  const trimmed = letter.trim();
+  let trimmed = letter.trim().replace(/\r\n/g, "\n");
+  // Models sometimes separate paragraphs with a single newline; turn them
+  // into real paragraphs, keeping a short sign-off as its own paragraph.
+  if (!trimmed.includes("\n\n")) {
+    const lines = trimmed.split("\n");
+    const signOff = lines.length > 1 && lines[lines.length - 1].length < 40 ? lines.pop() : null;
+    trimmed = [lines.join("\n\n"), signOff].filter(Boolean).join("\n\n");
+  }
   if (!fullName || trimmed.endsWith(fullName)) return trimmed;
   return `${trimmed}\n${fullName}`;
 }
