@@ -28,7 +28,16 @@ export async function signInWithOtp(formData: FormData) {
   });
 
   if (error) {
-    redirect(`/login?error=${encodeURIComponent(error.message)}`);
+    // Network-level failures (DNS, offline, paused/deleted Supabase
+    // project) surface as a bare "fetch failed"; map them to a code the
+    // login page explains instead of leaking the raw message.
+    const isNetworkError =
+      error.name === "AuthRetryableFetchError" || /fetch failed/i.test(error.message);
+    redirect(
+      isNetworkError
+        ? "/login?error=service-unavailable"
+        : `/login?error=${encodeURIComponent(error.message)}`,
+    );
   }
 
   redirect("/login?status=otp-sent");

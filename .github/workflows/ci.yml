@@ -43,8 +43,8 @@ jobs:
       # typecheck + lint + tests do not read them, only `next build` does.
       NEXT_PUBLIC_APP_URL: "http://localhost:3000"
       NEXT_PUBLIC_SUPABASE_URL: "https://example.supabase.co"
-      NEXT_PUBLIC_SUPABASE_ANON_KEY: "eyJhbGciOi.example.placeholder"
-      SUPABASE_SERVICE_ROLE_KEY: "eyJhbGciOi.example.placeholder"
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: "sb_publishable_example_placeholder"
+      SUPABASE_SECRET_KEY: "sb_secret_example_placeholder"
       SUPABASE_PROJECT_REF: "example"
       RESEND_API_KEY: "re_placeholder"
       RESEND_FROM_EMAIL: "noreply@example.com"

@@ -2,6 +2,20 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
+import { SubmitButton } from "@/components/form-buttons";
+import {
+  Alert,
+  buttonStyles,
+  Card,
+  fieldClass,
+  formatDate,
+  formatDateTime,
+  hostnameOf,
+  labelClass,
+  PageHeader,
+  PageShell,
+  StatusBadge,
+} from "@/components/ui";
 import { createClient } from "@/lib/supabase/server";
 import { applicationIdSchema } from "@/lib/validation/application";
 
@@ -15,8 +29,6 @@ import {
 } from "../actions";
 
 export const metadata: Metadata = { title: "Application detail" };
-
-type SearchParams = { error?: string; status?: string };
 
 type ApplicationDetail = {
   id: string;
@@ -80,13 +92,10 @@ const PROPOSAL_BUCKET = "proposals";
 
 export default async function ApplicationDetailPage({
   params,
-  searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<SearchParams>;
 }) {
   const { id } = await params;
-  const messages = await searchParams;
 
   if (!applicationIdSchema.safeParse(id).success) {
     notFound();
@@ -225,414 +234,341 @@ export default async function ApplicationDetailPage({
     resumeSignedUrl = data?.signedUrl ?? null;
   }
 
+  const hasProposal = Boolean(
+    detail.job_proposal_text || detail.job_proposal_url || detail.job_proposal_file_path,
+  );
+
   return (
-    <main className="mx-auto min-h-screen max-w-4xl space-y-8 px-6 py-12">
-      <header>
-        <p className="text-sm font-medium uppercase tracking-wide text-accent-600">
-          gestjobs
-        </p>
-        <h1 className="mt-1 text-3xl font-semibold text-slate-900">
-          {detail.position_title}
-        </h1>
-        <p className="mt-2 text-sm text-slate-600">
-          {detail.company_name} · Applied {detail.application_date}
-        </p>
-      </header>
-
-      {messages.error ? (
-        <p
-          role="alert"
-          className="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
-        >
-          {messages.error}
-        </p>
-      ) : null}
-      {messages.status ? (
-        <p
-          role="status"
-          className="rounded-md border border-accent-100 bg-accent-50 px-4 py-3 text-sm text-accent-700"
-        >
-          {renderStatusMessage(messages.status)}
-        </p>
-      ) : null}
-
-      <section className="rounded-lg border border-slate-200 p-5">
-        <h2 className="text-lg font-semibold">Overview</h2>
-        <dl className="mt-4 grid gap-3 text-sm text-slate-700 sm:grid-cols-2">
-          <div>
-            <dt className="font-medium text-slate-500">Status</dt>
-            <dd className="mt-1">
-              {detail.status?.name ?? "Unknown"}
-              {detail.status?.is_terminal ? (
-                <span className="ml-2 text-xs uppercase tracking-wide text-slate-500">
-                  Terminal
-                </span>
-              ) : null}
-            </dd>
-          </div>
-          <div>
-            <dt className="font-medium text-slate-500">Platform</dt>
-            <dd className="mt-1">
-              {detail.platform?.name ?? "Unknown"}
-              <span className="ml-2 text-xs text-slate-500">
-                {detail.platform?.hostname}
-              </span>
-            </dd>
-          </div>
-          <div className="sm:col-span-2">
-            <dt className="font-medium text-slate-500">Platform URL</dt>
-            <dd className="mt-1 break-all">
-              <a
-                href={detail.platform_url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-accent-700 hover:text-accent-800"
-              >
-                {detail.platform_url}
-              </a>
-            </dd>
-          </div>
-          <div>
-            <dt className="font-medium text-slate-500">Created</dt>
-            <dd className="mt-1">
-              {new Date(detail.created_at).toLocaleString("en")}
-            </dd>
-          </div>
-          <div>
-            <dt className="font-medium text-slate-500">Updated</dt>
-            <dd className="mt-1">
-              {new Date(detail.updated_at).toLocaleString("en")}
-            </dd>
-          </div>
-        </dl>
-      </section>
-
-      <section className="rounded-lg border border-slate-200 p-5">
-        <h2 className="text-lg font-semibold">Status</h2>
-        <p className="mt-1 text-xs text-slate-500">
-          Change the current status. Every change appends an immutable row
-          to the timeline below.
-        </p>
-        <form
-          action={changeApplicationStatus}
-          className="mt-4 flex flex-wrap items-end gap-3"
-        >
-          <input type="hidden" name="applicationId" value={detail.id} />
-          <label className="text-sm font-medium text-slate-700">
-            New status
-            <select
-              name="toStatusId"
-              defaultValue={detail.status?.id ?? ""}
-              className="mt-1 block rounded-md border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-accent-500 focus:outline-none focus:ring-2 focus:ring-accent-500"
-            >
-              {(statuses ?? []).map((status) => (
-                <option key={status.id} value={status.id}>
-                  {status.name}
-                  {status.is_terminal ? " (terminal)" : ""}
-                </option>
-              ))}
-            </select>
-          </label>
-          <button className="rounded-md bg-accent-600 px-4 py-2 text-sm font-medium text-white hover:bg-accent-700">
-            Update status
-          </button>
-        </form>
-
-        <ol className="mt-5 space-y-2 border-l border-slate-200 pl-4">
-          {historyRows.length === 0 ? (
-            <li className="text-xs text-slate-500">No history yet.</li>
-          ) : null}
-          {historyRows.map((row) => (
-            <li key={row.id} className="text-sm">
-              <div className="font-medium text-slate-900">
-                {row.to_status?.name ?? "Unknown"}
-                {row.from_status ? (
-                  <span className="ml-1 text-xs font-normal text-slate-500">
-                    from {row.from_status.name}
-                  </span>
-                ) : (
-                  <span className="ml-1 text-xs font-normal text-slate-500">
-                    (initial)
-                  </span>
-                )}
-              </div>
-              <div className="text-xs text-slate-500">
-                {new Date(row.changed_at).toLocaleString("en")}
-              </div>
-            </li>
-          ))}
-        </ol>
-      </section>
-
-      <section className="rounded-lg border border-slate-200 p-5">
-        <h2 className="text-lg font-semibold">Resume</h2>
-        {attachment && attachment.resume ? (
-          <div className="mt-4 space-y-3">
-            <p className="text-sm text-slate-700">
-              Attached: <span className="font-medium">{attachment.resume.label}</span>
-              <span className="ml-2 text-xs text-slate-500">
-                (since {new Date(attachment.attached_at).toLocaleString("en")})
-              </span>
-            </p>
-            {resumeSignedUrl ? (
-              <a
-                href={resumeSignedUrl}
-                className="text-sm font-medium text-accent-700 hover:text-accent-800"
-              >
-                Download resume
-              </a>
-            ) : (
-              <p className="text-xs text-red-700">Download unavailable.</p>
-            )}
-            <form action={detachResume} className="pt-2">
-              <input type="hidden" name="applicationId" value={detail.id} />
-              <button className="text-xs font-medium text-red-700 hover:text-red-800">
-                Detach resume
-              </button>
-            </form>
-          </div>
-        ) : (
-          <p className="mt-2 text-sm text-slate-500">No resume attached.</p>
-        )}
-        <form
-          action={attachResume}
-          className="mt-4 flex flex-wrap items-end gap-3 border-t border-slate-100 pt-4"
-        >
-          <input type="hidden" name="applicationId" value={detail.id} />
-          <label className="text-sm font-medium text-slate-700">
-            Attach resume version
-            <select
-              name="resumeId"
-              required
-              defaultValue=""
-              className="mt-1 block rounded-md border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-accent-500 focus:outline-none focus:ring-2 focus:ring-accent-500"
-            >
-              <option value="" disabled>
-                Select a resume version
-              </option>
-              {resumeOptions.map((resume) => (
-                <option key={resume.id} value={resume.id}>
-                  {resume.label}
-                </option>
-              ))}
-            </select>
-          </label>
-          <button className="rounded-md bg-accent-600 px-4 py-2 text-sm font-medium text-white hover:bg-accent-700">
-            Attach resume
-          </button>
-        </form>
-        {!resumeOptions.length ? (
-          <p className="mt-2 text-xs text-slate-500">
-            Need a resume version? Upload one at{" "}
-            <Link href="/resumes" className="text-accent-700 hover:text-accent-800">
-              /resumes
-            </Link>
-            .
-          </p>
-        ) : null}
-      </section>
-
-      <section className="rounded-lg border border-slate-200 p-5">
-        <h2 className="text-lg font-semibold">Contacts</h2>
-        {contactLinks.length === 0 ? (
-          <p className="mt-2 text-sm text-slate-500">No contacts linked.</p>
-        ) : (
-          <ul className="mt-4 space-y-2">
-            {contactLinks.map((link) => (
-              <li
-                key={`${link.contact_id}-${link.role}`}
-                className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-slate-100 px-3 py-2"
-              >
-                <div>
-                  <span className="font-medium text-slate-900">
-                    {link.contact?.name ?? "Unknown contact"}
-                  </span>
-                  <span className="ml-2 text-xs uppercase tracking-wide text-slate-500">
-                    {link.role}
-                  </span>
-                  {link.contact?.email ? (
-                    <span className="ml-2 text-xs text-slate-500">
-                      {link.contact.email}
-                    </span>
-                  ) : null}
-                </div>
-                <form action={detachContact}>
-                  <input
-                    type="hidden"
-                    name="applicationId"
-                    value={detail.id}
-                  />
-                  <input
-                    type="hidden"
-                    name="contactId"
-                    value={link.contact_id}
-                  />
-                  <input type="hidden" name="role" value={link.role} />
-                  <button className="text-xs font-medium text-red-700 hover:text-red-800">
-                    Remove role
-                  </button>
-                </form>
-              </li>
-            ))}
-          </ul>
-        )}
-        <form
-          action={attachContact}
-          className="mt-4 flex flex-wrap items-end gap-3 border-t border-slate-100 pt-4"
-        >
-          <input type="hidden" name="applicationId" value={detail.id} />
-          <label className="text-sm font-medium text-slate-700">
-            Contact
-            <select
-              name="contactId"
-              required
-              defaultValue=""
-              className="mt-1 block rounded-md border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-accent-500 focus:outline-none focus:ring-2 focus:ring-accent-500"
-            >
-              <option value="" disabled>
-                Select a contact
-              </option>
-              {contactOptions.map((contact) => (
-                <option key={contact.id} value={contact.id}>
-                  {contact.name}
-                  {contact.email ? ` (${contact.email})` : ""}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="text-sm font-medium text-slate-700">
-            Role
-            <input
-              name="role"
-              required
-              maxLength={80}
-              placeholder="Recruiter"
-              className="mt-1 block rounded-md border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-accent-500 focus:outline-none focus:ring-2 focus:ring-accent-500"
-            />
-          </label>
-          <button className="rounded-md bg-accent-600 px-4 py-2 text-sm font-medium text-white hover:bg-accent-700">
-            Attach contact
-          </button>
-        </form>
-        {!contactOptions.length ? (
-          <p className="mt-2 text-xs text-slate-500">
-            Need a contact? Create one at{" "}
-            <Link href="/contacts" className="text-accent-700 hover:text-accent-800">
-              /contacts
-            </Link>
-            .
-          </p>
-        ) : null}
-      </section>
-
-      <section className="rounded-lg border border-slate-200 p-5">
-        <h2 className="text-lg font-semibold">Job proposal</h2>
-        {!detail.job_proposal_text &&
-        !detail.job_proposal_url &&
-        !detail.job_proposal_file_path ? (
-          <p className="mt-2 text-sm text-slate-500">
-            No job proposal captured.
-          </p>
-        ) : null}
-        {detail.job_proposal_text ? (
-          <details className="mt-3">
-            <summary className="cursor-pointer text-sm font-medium text-slate-700">
-              Saved text
-            </summary>
-            <pre className="mt-2 max-h-72 overflow-auto whitespace-pre-wrap rounded-md border border-slate-100 bg-slate-50 px-3 py-2 text-xs text-slate-700">
-              {detail.job_proposal_text}
-            </pre>
-          </details>
-        ) : null}
-        {detail.job_proposal_url ? (
-          <p className="mt-3 text-sm">
-            <span className="font-medium text-slate-700">External URL:</span>{" "}
+    <PageShell>
+      <PageHeader
+        breadcrumb={{ href: "/applications", label: "Applications" }}
+        title={detail.position_title}
+        badge={<StatusBadge name={detail.status?.name} />}
+        description={
+          <>
+            {detail.company_name} · Applied {formatDate(detail.application_date)}
+          </>
+        }
+        actions={
+          <>
             <a
-              href={detail.job_proposal_url}
+              href={detail.platform_url}
               target="_blank"
               rel="noopener noreferrer"
-              className="break-all text-accent-700 hover:text-accent-800"
+              className={buttonStyles.secondary}
             >
-              {detail.job_proposal_url}
+              Open posting ↗
             </a>
-          </p>
-        ) : null}
-        {detail.job_proposal_file_path ? (
-          <p className="mt-3 text-sm">
-            <span className="font-medium text-slate-700">File:</span>{" "}
-            {proposalSignedUrl ? (
-              <a
-                href={proposalSignedUrl}
-                className="text-accent-700 hover:text-accent-800"
-              >
-                Download proposal
-              </a>
-            ) : (
-              <span className="text-xs text-red-700">
-                Download unavailable.
-              </span>
-            )}
-          </p>
-        ) : null}
-      </section>
+            <Link href={`/applications/${detail.id}/edit`} className={buttonStyles.primary}>
+              Edit
+            </Link>
+          </>
+        }
+      />
 
-      <section className="rounded-lg border border-red-200 bg-red-50 p-5">
-        <h2 className="text-lg font-semibold text-red-800">Danger zone</h2>
-        <p className="mt-1 text-sm text-red-700">
-          Deleting this application removes its status history, attached
-          resume and contacts, and the saved job proposal file.
-        </p>
-        <form action={deleteApplication} className="mt-3">
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_20rem]">
+        <div className="space-y-6">
+          <Card
+            title="Status"
+            description="Every change is added to the timeline below."
+          >
+            <form action={changeApplicationStatus} className="flex flex-wrap items-end gap-3">
+              <input type="hidden" name="applicationId" value={detail.id} />
+              <label className={`${labelClass} min-w-[12rem] flex-1`}>
+                Move to
+                <select
+                  name="toStatusId"
+                  defaultValue={detail.status?.id ?? ""}
+                  className={fieldClass}
+                >
+                  {(statuses ?? []).map((status) => (
+                    <option key={status.id} value={status.id}>
+                      {status.name}
+                      {status.is_terminal ? " (closes application)" : ""}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <SubmitButton pendingLabel="Updating…">Update status</SubmitButton>
+            </form>
+
+            <ol className="mt-6 space-y-4">
+              {historyRows.length === 0 ? (
+                <li className="text-sm text-slate-500">No history yet.</li>
+              ) : null}
+              {[...historyRows].reverse().map((row, index) => (
+                <li key={row.id} className="relative flex gap-3 pl-1">
+                  <span
+                    aria-hidden="true"
+                    className={
+                      "mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full ring-4 ring-white " +
+                      (index === 0 ? "bg-accent-600" : "bg-slate-300")
+                    }
+                  />
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2 text-sm">
+                      <StatusBadge name={row.to_status?.name} />
+                      <span className="text-slate-500">
+                        {row.from_status ? `from ${row.from_status.name}` : "initial status"}
+                      </span>
+                    </div>
+                    <time
+                      dateTime={row.changed_at}
+                      className="mt-0.5 block text-xs text-slate-400"
+                    >
+                      {formatDateTime(row.changed_at)}
+                    </time>
+                  </div>
+                </li>
+              ))}
+            </ol>
+          </Card>
+
+          <Card title="Job proposal">
+            {!hasProposal ? (
+              <p className="text-sm text-slate-500">No job description was saved.</p>
+            ) : (
+              <div className="space-y-4">
+                {detail.job_proposal_text ? (
+                  <details className="group rounded-lg border border-slate-200">
+                    <summary className="cursor-pointer select-none px-3 py-2 text-sm font-medium text-slate-700">
+                      Saved description
+                    </summary>
+                    <div className="max-h-96 overflow-auto whitespace-pre-wrap border-t border-slate-100 bg-slate-50 px-3 py-2 text-sm leading-relaxed text-slate-700">
+                      {detail.job_proposal_text}
+                    </div>
+                  </details>
+                ) : null}
+                <div className="flex flex-wrap gap-2">
+                  {detail.job_proposal_url ? (
+                    <a
+                      href={detail.job_proposal_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      title={detail.job_proposal_url}
+                      className={buttonStyles.secondary}
+                    >
+                      View on {hostnameOf(detail.job_proposal_url)} ↗
+                    </a>
+                  ) : null}
+                  {detail.job_proposal_file_path ? (
+                    proposalSignedUrl ? (
+                      <a href={proposalSignedUrl} className={buttonStyles.secondary}>
+                        Download file
+                      </a>
+                    ) : (
+                      <span className="text-sm text-red-700">File download unavailable.</span>
+                    )
+                  ) : null}
+                </div>
+              </div>
+            )}
+          </Card>
+        </div>
+
+        <aside className="space-y-6">
+          <Card title="Details">
+            <dl className="space-y-3 text-sm">
+              <DetailRow label="Company">{detail.company_name}</DetailRow>
+              <DetailRow label="Platform">
+                {detail.platform?.name ?? "Unknown"}
+                {detail.platform?.hostname ? (
+                  <span className="block text-xs text-slate-500">{detail.platform.hostname}</span>
+                ) : null}
+              </DetailRow>
+              <DetailRow label="Applied">{formatDate(detail.application_date)}</DetailRow>
+              <DetailRow label="Last updated">{formatDateTime(detail.updated_at)}</DetailRow>
+            </dl>
+          </Card>
+
+          <Card title="Resume">
+            {attachment && attachment.resume ? (
+              <div className="mb-4 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+                <p className="text-sm font-medium text-slate-900">{attachment.resume.label}</p>
+                <p className="text-xs text-slate-500">
+                  Attached {formatDate(attachment.attached_at)}
+                </p>
+                <div className="mt-2 flex flex-wrap items-center gap-3">
+                  {resumeSignedUrl ? (
+                    <a href={resumeSignedUrl} className={`text-sm ${buttonStyles.link}`}>
+                      Download
+                    </a>
+                  ) : (
+                    <span className="text-xs text-red-700">Download unavailable</span>
+                  )}
+                  <form action={detachResume}>
+                    <input type="hidden" name="applicationId" value={detail.id} />
+                    <SubmitButton variant="dangerLink" pendingLabel="Removing…">
+                      Detach
+                    </SubmitButton>
+                  </form>
+                </div>
+              </div>
+            ) : (
+              <p className="mb-4 text-sm text-slate-500">No resume attached.</p>
+            )}
+            {resumeOptions.length ? (
+              <form action={attachResume} className="space-y-2">
+                <input type="hidden" name="applicationId" value={detail.id} />
+                <label className={labelClass}>
+                  {attachment ? "Replace with" : "Attach a version"}
+                  <select name="resumeId" required defaultValue="" className={fieldClass}>
+                    <option value="" disabled>
+                      Select a resume
+                    </option>
+                    {resumeOptions.map((resume) => (
+                      <option key={resume.id} value={resume.id}>
+                        {resume.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <SubmitButton variant="secondary" pendingLabel="Attaching…" className="w-full">
+                  Attach resume
+                </SubmitButton>
+              </form>
+            ) : (
+              <p className="text-sm text-slate-500">
+                <Link href="/resumes" className={buttonStyles.link}>
+                  Upload a resume
+                </Link>{" "}
+                to attach it here.
+              </p>
+            )}
+          </Card>
+
+          <Card title="Contacts">
+            {contactLinks.length === 0 ? (
+              <p className="mb-4 text-sm text-slate-500">No contacts linked.</p>
+            ) : (
+              <ul className="mb-4 space-y-2">
+                {contactLinks.map((link) => (
+                  <li
+                    key={`${link.contact_id}-${link.role}`}
+                    className="rounded-lg border border-slate-200 px-3 py-2"
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-medium text-slate-900">
+                          {link.contact?.name ?? "Unknown contact"}
+                        </p>
+                        <p className="text-xs text-slate-500">{link.role}</p>
+                        {link.contact?.email ? (
+                          <a
+                            href={`mailto:${link.contact.email}`}
+                            className={`block truncate text-xs ${buttonStyles.link}`}
+                          >
+                            {link.contact.email}
+                          </a>
+                        ) : null}
+                      </div>
+                      <form action={detachContact}>
+                        <input type="hidden" name="applicationId" value={detail.id} />
+                        <input type="hidden" name="contactId" value={link.contact_id} />
+                        <input type="hidden" name="role" value={link.role} />
+                        <SubmitButton variant="dangerLink" pendingLabel="…" className="text-xs">
+                          <span aria-hidden="true">✕</span>
+                          <span className="sr-only">
+                            Remove {link.contact?.name ?? "contact"} as {link.role}
+                          </span>
+                        </SubmitButton>
+                      </form>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+            {contactOptions.length ? (
+              <form action={attachContact} className="space-y-2">
+                <input type="hidden" name="applicationId" value={detail.id} />
+                <label className={labelClass}>
+                  Contact
+                  <select name="contactId" required defaultValue="" className={fieldClass}>
+                    <option value="" disabled>
+                      Select a contact
+                    </option>
+                    {contactOptions.map((contact) => (
+                      <option key={contact.id} value={contact.id}>
+                        {contact.name}
+                        {contact.email ? ` (${contact.email})` : ""}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className={labelClass}>
+                  Role
+                  <input
+                    name="role"
+                    required
+                    maxLength={80}
+                    list="contact-role-suggestions"
+                    placeholder="Recruiter"
+                    className={fieldClass}
+                  />
+                  <datalist id="contact-role-suggestions">
+                    <option value="Recruiter" />
+                    <option value="Hiring manager" />
+                    <option value="Referrer" />
+                    <option value="Interviewer" />
+                  </datalist>
+                </label>
+                <SubmitButton variant="secondary" pendingLabel="Linking…" className="w-full">
+                  Link contact
+                </SubmitButton>
+              </form>
+            ) : (
+              <p className="text-sm text-slate-500">
+                <Link href="/contacts" className={buttonStyles.link}>
+                  Add a contact
+                </Link>{" "}
+                to link it here.
+              </p>
+            )}
+          </Card>
+        </aside>
+      </div>
+
+      <section className="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-red-200 bg-red-50/50 p-5">
+        <div>
+          <h2 className="text-sm font-semibold text-red-800">Delete application</h2>
+          <p className="mt-0.5 text-sm text-red-700">
+            Removes its status history, linked resume and contacts, and the saved
+            proposal file. This cannot be undone.
+          </p>
+        </div>
+        <form action={deleteApplication}>
           <input type="hidden" name="applicationId" value={detail.id} />
-          <button className="rounded-md border border-red-300 bg-white px-4 py-2 text-sm font-medium text-red-700 hover:bg-red-100">
+          <SubmitButton
+            variant="danger"
+            pendingLabel="Deleting…"
+            confirmMessage={`Delete "${detail.position_title}" at ${detail.company_name}? This cannot be undone.`}
+          >
             Delete application
-          </button>
+          </SubmitButton>
         </form>
       </section>
-    </main>
+    </PageShell>
+  );
+}
+
+function DetailRow({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <dt className="text-xs font-medium uppercase tracking-wide text-slate-400">{label}</dt>
+      <dd className="mt-0.5 text-slate-800">{children}</dd>
+    </div>
   );
 }
 
 function renderErrorPage(message: string) {
   return (
-    <main className="mx-auto min-h-screen max-w-3xl space-y-6 px-6 py-12">
-      <header>
-        <p className="text-sm font-medium uppercase tracking-wide text-accent-600">
-          gestjobs
-        </p>
-        <h1 className="mt-1 text-3xl font-semibold text-slate-900">
-          Application
-        </h1>
-      </header>
-      <p
-        role="alert"
-        className="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
-      >
-        {message}
-      </p>
-    </main>
+    <PageShell>
+      <PageHeader
+        breadcrumb={{ href: "/applications", label: "Applications" }}
+        title="Application"
+      />
+      <Alert tone="error">{message}</Alert>
+    </PageShell>
   );
 }
 
-function renderStatusMessage(status: string): string {
-  switch (status) {
-    case "changed":
-      return "Status updated.";
-    case "unchanged":
-      return "Status was already up to date.";
-    case "resume-attached":
-      return "Resume attached.";
-    case "resume-detached":
-      return "Resume detached.";
-    case "contact-attached":
-      return "Contact attached.";
-    case "contact-detached":
-      return "Contact detached.";
-    case "updated":
-      return "Application updated.";
-    case "created":
-      return "Application created.";
-    default:
-      return `Application ${status}.`;
-  }
-}

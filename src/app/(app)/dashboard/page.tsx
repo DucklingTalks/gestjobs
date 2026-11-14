@@ -2,11 +2,17 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
+import {
+  buttonStyles,
+  Chip,
+  EmptyState,
+  PageHeader,
+  PageShell,
+  StatusBadge,
+} from "@/components/ui";
 import { createClient } from "@/lib/supabase/server";
 
 export const metadata: Metadata = { title: "Dashboard" };
-
-type SearchParams = { error?: string };
 
 type StatusCount = {
   id: string;
@@ -26,12 +32,7 @@ type PendingReminder = {
   platform_url: string;
 };
 
-export default async function DashboardPage({
-  searchParams,
-}: {
-  searchParams: Promise<SearchParams>;
-}) {
-  const messages = await searchParams;
+export default async function DashboardPage() {
   const supabase = await createClient();
   const {
     data: { user },
@@ -43,141 +44,142 @@ export default async function DashboardPage({
     loadPendingReminders(supabase, user.id),
   ]);
 
+  const total = statusCounts.reduce((sum, s) => sum + s.count, 0);
+  const active = statusCounts
+    .filter((s) => !s.is_terminal)
+    .reduce((sum, s) => sum + s.count, 0);
+
   return (
-    <main className="mx-auto min-h-screen max-w-5xl space-y-8 px-6 py-12">
-      <header>
-        <p className="text-sm font-medium uppercase tracking-wide text-accent-600">
-          gestjobs
-        </p>
-        <h1 className="mt-1 text-3xl font-semibold text-slate-900">
-          Dashboard
-        </h1>
-        <p className="mt-2 text-sm text-slate-600">
-          A quick read on where every application stands and what needs a
-          follow-up next.
-        </p>
-      </header>
+    <PageShell>
+      <PageHeader
+        title="Dashboard"
+        description="Where every application stands and what needs a follow-up next."
+        actions={
+          <Link href="/applications/new" className={buttonStyles.primary}>
+            + New application
+          </Link>
+        }
+      />
 
-      {messages.error ? (
-        <p
-          role="alert"
-          className="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
-        >
-          {messages.error}
-        </p>
-      ) : null}
+      {total === 0 ? (
+        <EmptyState
+          title="No applications yet"
+          description="Add the first role you applied to and gestjobs will start tracking its status and follow-ups."
+          action={
+            <Link href="/applications/new" className={buttonStyles.primary}>
+              Add your first application
+            </Link>
+          }
+        />
+      ) : (
+        <>
+          <section aria-label="Summary" className="grid gap-3 sm:grid-cols-3">
+            <SummaryTile label="Total applications" value={total} />
+            <SummaryTile label="In progress" value={active} />
+            <SummaryTile
+              label="Follow-ups due"
+              value={pendingReminders.length}
+              highlight={pendingReminders.length > 0}
+            />
+          </section>
 
-      <section className="space-y-3">
-        <h2 className="text-lg font-semibold text-slate-900">Applications by status</h2>
-        {statusCounts.length === 0 ? (
-          <p className="rounded-md border border-slate-200 bg-slate-50 px-4 py-6 text-sm text-slate-600">
-            No applications yet. Create your first one to see counters here.
-          </p>
-        ) : (
-          <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {statusCounts.map((status) => (
-              <li
-                key={status.id}
-                className={
-                  "rounded-lg border px-4 py-3 " +
-                  (status.is_terminal
-                    ? "border-slate-200 bg-slate-50"
-                    : "border-slate-200 bg-white")
-                }
-              >
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium text-slate-700">
-                    {status.name}
-                    {status.is_terminal ? (
-                      <span className="ml-2 text-xs uppercase tracking-wide text-slate-500">
-                        Terminal
-                      </span>
-                    ) : null}
-                  </span>
-                  <span className="text-2xl font-semibold text-slate-900">
-                    {status.count}
-                  </span>
-                </div>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
-
-      <section className="space-y-3">
-        <h2 className="text-lg font-semibold text-slate-900">Pending reminders</h2>
-        {pendingReminders.length === 0 ? (
-          <p className="rounded-md border border-slate-200 bg-slate-50 px-4 py-6 text-sm text-slate-600">
-            No reminders are due. Next reminders fire 15 days after the
-            last status change.
-          </p>
-        ) : (
-          <ul className="space-y-2">
-            {pendingReminders.map((reminder) => (
-              <li
-                key={reminder.id}
-                className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3"
-              >
-                <Link
-                  href={`/applications/${reminder.id}`}
-                  className="block hover:bg-amber-100"
-                >
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <div className="font-medium text-slate-900">
-                      {reminder.position_title}
-                      <span className="font-normal text-slate-500">
-                        {" · "}
+          <section className="space-y-3">
+            <div className="flex items-baseline justify-between">
+              <h2 className="text-base font-semibold text-slate-900">
+                Follow-ups due
+              </h2>
+              <span className="text-xs text-slate-500">
+                Sent 15 days after the last status change
+              </span>
+            </div>
+            {pendingReminders.length === 0 ? (
+              <p className="rounded-xl border border-slate-200 bg-white px-4 py-5 text-sm text-slate-600">
+                You are all caught up — no follow-ups are due right now.
+              </p>
+            ) : (
+              <ul className="divide-y divide-slate-100 overflow-hidden rounded-xl border border-amber-200 bg-white">
+                {pendingReminders.map((reminder) => (
+                  <li key={reminder.id} className="relative flex flex-wrap items-center justify-between gap-3 px-4 py-3 hover:bg-amber-50/60">
+                    <div className="min-w-0">
+                      <Link
+                        href={`/applications/${reminder.id}`}
+                        className="font-medium text-slate-900 after:absolute after:inset-0"
+                      >
+                        {reminder.position_title}
+                      </Link>
+                      <p className="mt-0.5 flex flex-wrap items-center gap-2 text-sm text-slate-500">
                         {reminder.company_name}
-                      </span>
+                        <StatusBadge name={reminder.status_name} />
+                        {reminder.platform_name ? <Chip>{reminder.platform_name}</Chip> : null}
+                      </p>
                     </div>
-                    <div className="text-xs font-medium text-amber-700">
-                      Due {formatReminderDate(reminder.next_reminder_at)}
+                    <div className="flex items-center gap-3">
+                      <span className="text-xs font-semibold text-amber-700">
+                        Due {formatReminderDate(reminder.next_reminder_at)}
+                      </span>
+                      <a
+                        href={reminder.platform_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className={`relative z-10 text-xs ${buttonStyles.link}`}
+                      >
+                        Open posting ↗
+                      </a>
                     </div>
-                  </div>
-                  <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-slate-600">
-                    {reminder.status_name ? (
-                      <span className="rounded-full bg-white px-2 py-0.5 text-slate-700">
-                        {reminder.status_name}
-                      </span>
-                    ) : null}
-                    {reminder.platform_name ? (
-                      <span className="rounded-full bg-white px-2 py-0.5 text-slate-700">
-                        {reminder.platform_name}
-                      </span>
-                    ) : null}
-                  </div>
-                </Link>
-                <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-slate-600">
-                  <a
-                    href={reminder.platform_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="truncate text-accent-700 hover:text-accent-800"
-                  >
-                    {reminder.platform_url}
-                  </a>
-                </div>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
 
-      <section className="flex flex-wrap items-center gap-3">
-        <Link
-          href="/applications/new"
-          className="inline-flex items-center rounded-md bg-accent-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-accent-700"
-        >
-          New application
-        </Link>
-        <Link
-          href="/applications"
-          className="inline-flex items-center rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
-        >
-          View all applications
-        </Link>
-      </section>
-    </main>
+          <section className="space-y-3">
+            <h2 className="text-base font-semibold text-slate-900">
+              Applications by status
+            </h2>
+            <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              {statusCounts.map((status) => (
+                <li key={status.id}>
+                  <Link
+                    href={`/applications?filter=${status.id}`}
+                    className={
+                      "flex items-center justify-between rounded-xl border bg-white px-4 py-3 transition hover:border-accent-500 hover:shadow-sm " +
+                      (status.count === 0 ? "border-slate-200 opacity-60" : "border-slate-200")
+                    }
+                  >
+                    <StatusBadge name={status.name} />
+                    <span className="text-2xl font-semibold tabular-nums text-slate-900">
+                      {status.count}
+                    </span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </section>
+        </>
+      )}
+    </PageShell>
+  );
+}
+
+function SummaryTile({
+  label,
+  value,
+  highlight = false,
+}: {
+  label: string;
+  value: number;
+  highlight?: boolean;
+}) {
+  return (
+    <div
+      className={
+        "rounded-xl border px-5 py-4 " +
+        (highlight ? "border-amber-200 bg-amber-50" : "border-slate-200 bg-white")
+      }
+    >
+      <p className={"text-sm " + (highlight ? "text-amber-800" : "text-slate-500")}>{label}</p>
+      <p className="mt-1 text-3xl font-semibold tabular-nums text-slate-900">{value}</p>
+    </div>
   );
 }
 

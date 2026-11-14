@@ -9,8 +9,8 @@ Supabase provides PostgreSQL, Auth, Storage, and row-level security for GestJobs
 3. Save the database password in a password manager.
 4. From **Project Settings → API**, copy:
    - Project URL → `NEXT_PUBLIC_SUPABASE_URL`
-   - Publishable/anon key → `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-   - Service-role key → `SUPABASE_SERVICE_ROLE_KEY` (server-only).
+   - Publishable key (`sb_publishable_…`, Project Settings → API Keys) → `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`
+   - Secret key (`sb_secret_…`, Project Settings → API Keys) → `SUPABASE_SECRET_KEY` (server-only).
 
 Never expose the service-role key to the browser or commit it.
 

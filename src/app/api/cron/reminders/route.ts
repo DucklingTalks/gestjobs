@@ -26,7 +26,7 @@
  * `apply-progress.md` § "Issues Found".
  *
  * Why service-role client: cron has no authenticated user. The route
- * uses `SUPABASE_SERVICE_ROLE_KEY` to query every due application
+ * uses `SUPABASE_SECRET_KEY` (or legacy `SUPABASE_SERVICE_ROLE_KEY`) to query every due application
  * across users, send the email, and write the dispatch row. RLS does
  * not apply for the service role, so the route must enforce its own
  * "due = `next_reminder_at <= now()` AND non-terminal status" filter
@@ -110,7 +110,8 @@ export async function POST(request: Request) {
   }
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const serviceRoleKey =
+    process.env.SUPABASE_SECRET_KEY ?? process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!supabaseUrl || !serviceRoleKey) {
     return unauthorized("Supabase service role is not configured.", 503);
   }

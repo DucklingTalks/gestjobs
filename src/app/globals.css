@@ -3,7 +3,10 @@
 @tailwind utilities;
 
 :root {
-  color-scheme: light dark;
+  /* The UI only ships a light palette; declaring `light dark` made native
+     controls (date pickers, file inputs, scrollbars) render dark on a
+     white page when the OS used dark mode. */
+  color-scheme: light;
 }
 
 html,
@@ -27,9 +30,10 @@ body {
   :where(input[type="search"]),
   :where(input[type="date"]),
   :where(input[type="datetime-local"]),
+  :where(input:not([type])),
   :where(textarea),
   :where(select) {
-    @apply rounded-md border border-slate-300 bg-white px-3 py-2 text-base text-slate-900 shadow-sm;
+    @apply rounded-md border border-slate-300 bg-white px-3 py-2 text-base text-slate-900 shadow-sm sm:text-sm;
   }
 
   :where(input)::placeholder,
@@ -41,5 +45,15 @@ body {
   :where(textarea:focus),
   :where(select:focus) {
     @apply border-accent-500 outline-none ring-2 ring-accent-500;
+  }
+
+  /* Visible keyboard focus for every interactive element. */
+  :where(a, button, summary, [role="option"]):focus-visible {
+    @apply rounded-md outline-none ring-2 ring-accent-500 ring-offset-2;
+  }
+
+  /* Styled native file picker button. */
+  :where(input[type="file"])::file-selector-button {
+    @apply mr-3 cursor-pointer rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 transition hover:bg-slate-50;
   }
 }
