@@ -15,6 +15,8 @@ type SearchParams = {
 const ERROR_MESSAGES: Record<string, string> = {
   "missing-email": "Enter your email address to receive a sign-in link.",
   "auth-callback": "That sign-in link is missing information. Request a new one.",
+  "service-unavailable":
+    "We couldn't reach the sign-in service. Check your connection and try again in a moment.",
 };
 
 export default async function LoginPage({

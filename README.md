@@ -43,16 +43,16 @@ Copy `.env.example` to `.env.local` and fill in real values. `.env.local` is git
 | Variable | Source | Used by |
 |----------|--------|---------|
 | `NEXT_PUBLIC_APP_URL` | Set to `http://localhost:3000` locally; your preview URL on Vercel | App links |
-| `NEXT_PUBLIC_SUPABASE_URL` | Supabase Dashboard → Project Settings → API | Client + server |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase Dashboard → Project Settings → API | Client + server |
-| `SUPABASE_SERVICE_ROLE_KEY` | Supabase Dashboard → Project Settings → API | **Server only** — cron route uses it to bypass RLS |
+| `NEXT_PUBLIC_SUPABASE_URL` | Supabase Dashboard → Project Settings → Data API | Client + server |
+| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Supabase Dashboard → Project Settings → API Keys → *Publishable key* (`sb_publishable_…`) | Client + server |
+| `SUPABASE_SECRET_KEY` | Supabase Dashboard → Project Settings → API Keys → *Secret keys* (`sb_secret_…`) | **Server only** — cron route uses it to bypass RLS |
 | `SUPABASE_PROJECT_REF` | Project URL slug | Supabase CLI |
 | `RESEND_API_KEY` | Resend → API Keys | Reminder dispatch |
 | `RESEND_FROM_EMAIL` | A verified Resend sender | Reminder email `from` |
 | `RESEND_REPLY_TO` | Optional. Your email address | Reminder email `reply-to` |
 | `CRON_SECRET` | `openssl rand -hex 32` | Auth gate for `POST /api/cron/reminders` |
 
-> **Security:** never commit `.env.local` or real keys. Rotate leaked credentials immediately. The service-role key is only ever used in `src/app/api/cron/reminders/route.ts` and never crosses the client bundle.
+> **Security:** never commit `.env.local` or real keys. Rotate leaked credentials immediately. Legacy `NEXT_PUBLIC_SUPABASE_ANON_KEY` / `SUPABASE_SERVICE_ROLE_KEY` are still read as a fallback when the new keys are unset. The secret key is only ever used in `src/app/api/cron/reminders/route.ts` and never crosses the client bundle.
 
 ### Supabase setup
 

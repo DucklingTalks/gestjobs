@@ -17,8 +17,8 @@ Configure these in **Project Settings → Environment Variables** for Preview an
 |---|---|
 | `NEXT_PUBLIC_APP_URL` | Preview or production URL |
 | `NEXT_PUBLIC_SUPABASE_URL` | Supabase API settings |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase API settings |
-| `SUPABASE_SERVICE_ROLE_KEY` | Supabase API settings; server-only |
+| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Supabase → Project Settings → API Keys (publishable) |
+| `SUPABASE_SECRET_KEY` | Supabase → Project Settings → API Keys (secret); server-only |
 | `RESEND_API_KEY` | Resend API key |
 | `RESEND_FROM_EMAIL` | Verified Resend sender |
 | `RESEND_REPLY_TO` | Reply-to address |

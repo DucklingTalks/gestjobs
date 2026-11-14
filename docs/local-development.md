@@ -62,9 +62,9 @@ The lockfile is the source of truth; CI enforces `--frozen-lockfile` so local in
 |----------|---------------------|---------------------|
 | `NEXT_PUBLIC_APP_URL` | `http://localhost:3000` | Your local base URL |
 | `SUPABASE_PROJECT_REF` | `abc123def` | Supabase Dashboard → Project Settings |
-| `NEXT_PUBLIC_SUPABASE_URL` | `https://abc123def.supabase.co` | Supabase Dashboard → Project Settings → API |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | `eyJhbG...` | Supabase Dashboard → Project Settings → API *(public anon key)* |
-| `SUPABASE_SERVICE_ROLE_KEY` | `eyJhbG...` | Supabase Dashboard → Project Settings → API *(service role — keep secret)* |
+| `NEXT_PUBLIC_SUPABASE_URL` | `https://abc123def.supabase.co` | Supabase Dashboard → Project Settings → Data API |
+| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | `sb_publishable_...` | Supabase Dashboard → Project Settings → API Keys *(publishable key)* |
+| `SUPABASE_SECRET_KEY` | `sb_secret_...` | Supabase Dashboard → Project Settings → API Keys *(secret key — keep secret)* |
 | `RESEND_API_KEY` | `re_xxxxxxxx` | Resend Dashboard → API Keys |
 | `RESEND_FROM_EMAIL` | `GestJobs <noreply@your-domain.com>` | A verified Resend sender |
 | `RESEND_REPLY_TO` | `you@example.com` | Your personal email *(optional)* |
@@ -79,7 +79,8 @@ The lockfile is the source of truth; CI enforces `--frozen-lockfile` so local in
 
 > **Security rules**
 > - Never commit `.env.local` or real keys.
-> - `SUPABASE_SERVICE_ROLE_KEY` is **server-only**; it is used only by the cron route.
+> - `SUPABASE_SECRET_KEY` is **server-only**; it is used only by the cron route.
+> - Legacy `NEXT_PUBLIC_SUPABASE_ANON_KEY` / `SUPABASE_SERVICE_ROLE_KEY` (`eyJ…`) are only read as a fallback when the new keys are unset. If Supabase has disabled legacy keys on the project they return 401.
 > - `CRON_SECRET` must be long and random; it is the only gate on `POST /api/cron/reminders`.
 > - Rotate any leaked key immediately from the relevant dashboard.
 
@@ -308,8 +309,9 @@ In production the route is triggered by an **external cron service** (e.g. cron-
 | `pnpm typecheck` reports Supabase type errors | `database.types.ts` is out of sync with migrations | Run `npx supabase gen types typescript --linked > src/lib/supabase/database.types.ts` |
 | `pnpm build` fails with missing env | Next.js reads env at build time | Ensure `.env.local` exists (values can be placeholders for the static pipeline) |
 | Magic link never arrives | Site URL mismatch in Supabase Auth | Set Auth → URL Configuration → Site URL to `http://localhost:3000` |
-| 401 on server actions | Missing Supabase URL/key or unauthenticated session | Verify `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, and the active login session |
-| Cron returns 503 | `CRON_SECRET` or `SUPABASE_SERVICE_ROLE_KEY` missing | Check `.env.local` and restart `pnpm dev` |
+| 401 on server actions | Missing Supabase URL/key or unauthenticated session | Verify `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, and the active login session |
+| Login shows "We couldn't reach the sign-in service" | Supabase project paused/deleted or wrong URL (DNS fails) | Restore the project in the Supabase dashboard and check `NEXT_PUBLIC_SUPABASE_URL` |
+| Cron returns 503 | `CRON_SECRET` or `SUPABASE_SECRET_KEY` missing | Check `.env.local` and restart `pnpm dev` |
 | Cron returns 0 sent but dashboard shows reminders | Resend env missing or invalid | Verify `RESEND_API_KEY` and `RESEND_FROM_EMAIL` are set and the sender domain is verified |
 | Upload rejected | File size > 10 MB or wrong MIME type | Use PDF or DOCX under 10 MB |
 
