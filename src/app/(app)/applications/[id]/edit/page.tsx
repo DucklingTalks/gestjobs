@@ -3,7 +3,7 @@ import { notFound, redirect } from "next/navigation";
 
 import { Alert, PageHeader, PageShell } from "@/components/ui";
 import type { Platform } from "@/lib/platforms/infer";
-import { seedPlatforms } from "@/lib/platforms/seed";
+import { loadGlobalPlatforms } from "@/lib/platforms/global";
 import { createClient } from "@/lib/supabase/server";
 import { applicationIdSchema } from "@/lib/validation/application";
 
@@ -27,8 +27,12 @@ export default async function EditApplicationPage({
 
   const breadcrumb = { href: `/applications/${id}`, label: "Back to application" };
 
-  const [{ data: application, error }, { data: customRows }, { data: statuses }] =
-    await Promise.all([
+  const [
+    { data: application, error },
+    { data: customRows },
+    { data: statuses },
+    globalPlatforms,
+  ] = await Promise.all([
       supabase
         .from("applications")
         .select(
@@ -48,6 +52,7 @@ export default async function EditApplicationPage({
         .select("id, name, is_terminal")
         .eq("user_id", user.id)
         .order("sort_order", { ascending: true }),
+      loadGlobalPlatforms(supabase),
     ]);
 
   if (error) {
@@ -88,7 +93,7 @@ export default async function EditApplicationPage({
       />
 
       <ApplicationForm
-        options={seedPlatforms}
+        options={globalPlatforms}
         customPlatforms={customPlatforms}
         statuses={statuses ?? []}
         defaultDate={application.application_date}

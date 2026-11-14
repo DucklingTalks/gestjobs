@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 
 import { Alert, PageHeader, PageShell } from "@/components/ui";
 import { createClient } from "@/lib/supabase/server";
-import { seedPlatforms } from "@/lib/platforms/seed";
+import { loadGlobalPlatforms } from "@/lib/platforms/global";
 import type { Platform } from "@/lib/platforms/infer";
 
 import { ApplicationForm } from "./application-form";
@@ -61,6 +61,8 @@ export default async function NewApplicationPage() {
     isCustom: row.is_custom,
   }));
 
+  const globalPlatforms = await loadGlobalPlatforms(supabase);
+
   const today = new Date().toISOString().slice(0, 10);
 
   return (
@@ -72,7 +74,7 @@ export default async function NewApplicationPage() {
       />
 
       <ApplicationForm
-        options={seedPlatforms}
+        options={globalPlatforms}
         customPlatforms={customPlatforms}
         statuses={statuses.map((status) => ({
           id: status.id,

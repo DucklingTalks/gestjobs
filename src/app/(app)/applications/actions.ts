@@ -299,6 +299,26 @@ async function resolvePlatformId(
     };
   }
 
+  // Safety net: the client may submit a global platform without its id
+  // (e.g. the static seed fallback). Reuse the global row whose hostname
+  // matches the URL instead of creating a per-user duplicate.
+  const { data: globalRows } = await supabase
+    .from("platforms")
+    .select("id, name, hostname")
+    .is("user_id", null);
+  const globalMatch = inferPlatformFromUrl(
+    platformUrl,
+    (globalRows ?? []).map((row) => ({
+      id: row.id,
+      name: row.name,
+      hostname: row.hostname,
+      isCustom: false,
+    })),
+  );
+  if (globalMatch?.id && globalMatch.name.toLowerCase() === platformName.toLowerCase()) {
+    return { ok: true, platformId: globalMatch.id };
+  }
+
   const candidate = inferPlatformFromUrl(platformUrl, [
     { id: null, name: platformName, hostname, isCustom: true },
   ]);
