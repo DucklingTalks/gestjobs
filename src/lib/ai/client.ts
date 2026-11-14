@@ -1,3 +1,5 @@
+import { randomUUID } from "node:crypto";
+
 import Anthropic from "@anthropic-ai/sdk";
 import type { z } from "zod";
 
@@ -112,6 +114,9 @@ export async function generateJson<S extends z.ZodTypeAny>({
   }
 
   const messages: Anthropic.MessageParam[] = [{ role: "user", content: prompt }];
+  // OpenCode routes by conversation and rejects requests without this
+  // header; the repair turn below reuses the same session.
+  const session = randomUUID();
 
   for (let attempt = 0; attempt < 2; attempt++) {
     let response: Anthropic.Message;
@@ -121,7 +126,7 @@ export async function generateJson<S extends z.ZodTypeAny>({
         max_tokens: maxTokens,
         system,
         messages,
-      });
+      }, { headers: { "x-opencode-session": session } });
     } catch (error) {
       console.error("[ai] request failed", error instanceof Error ? error.message : error);
       return { ok: false, error: describeError(error) };
