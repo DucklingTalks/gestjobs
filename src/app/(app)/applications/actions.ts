@@ -53,6 +53,9 @@ import {
 
 const PROPOSAL_BUCKET = "proposals";
 
+/** State returned to `useActionState` by the create/update form actions. */
+export type ApplicationFormState = { error: string | null };
+
 export type UpsertCustomPlatformInput = {
   name: string;
   /**
@@ -380,20 +383,23 @@ async function removeProposalFile(
  * Spec scenario: "Create application" — visible in the list afterwards.
  * Also runs the platform inference path (combobox fallback / custom upsert).
  */
-export async function createApplication(formData: FormData) {
+export async function createApplication(
+  _prev: ApplicationFormState,
+  formData: FormData,
+): Promise<ApplicationFormState> {
   const parsed = parseApplicationForm(formData, false);
   if (!parsed.input) {
-    redirectWithError("/applications/new", parsed.error);
+    return { error: parsed.error };
   }
 
   const { supabase, user, error: authError } = await requireUser();
   if (!supabase || !user) {
-    redirectWithError("/applications/new", authError ?? "You must be signed in.");
+    return { error: authError ?? "You must be signed in." };
   }
 
   const platform = await resolvePlatformId(supabase, user.id, formData);
   if (!platform.ok) {
-    redirectWithError("/applications/new", platform.error);
+    return { error: platform.error };
   }
 
   const input = parsed.input as ApplicationInput;
@@ -418,7 +424,7 @@ export async function createApplication(formData: FormData) {
     .single();
 
   if (insertError || !created) {
-    redirectWithError("/applications/new", "Unable to create application.");
+    return { error: "Unable to create application." };
   }
 
   // Record the initial status row so the timeline starts with the chosen
@@ -446,7 +452,7 @@ export async function createApplication(formData: FormData) {
       .delete()
       .eq("application_id", created.id);
     await supabase.from("applications").delete().eq("id", created.id);
-    redirectWithError("/applications/new", file.error);
+    return { error: file.error };
   }
 
   if (file.filePath) {
@@ -462,7 +468,7 @@ export async function createApplication(formData: FormData) {
         .delete()
         .eq("application_id", created.id);
       await supabase.from("applications").delete().eq("id", created.id);
-      redirectWithError("/applications/new", "Unable to attach proposal file.");
+      return { error: "Unable to attach proposal file." };
     }
   }
 
@@ -475,25 +481,53 @@ export async function createApplication(formData: FormData) {
  *
  * The status change is a separate action (see `changeApplicationStatus`)
  * so the history row can be inserted in the same transaction.
+ *
+ * Proposal file handling: uploading a new file replaces the stored one;
+ * the `removeProposalFile` checkbox clears it. The previous object is
+ * deleted from storage only after the row update succeeds.
+ *
+ * Used with `useActionState`: validation failures are returned so the
+ * form keeps the user's input; success redirects to the detail page.
  */
-export async function updateApplication(formData: FormData) {
+export async function updateApplication(
+  _prev: ApplicationFormState,
+  formData: FormData,
+): Promise<ApplicationFormState> {
   const parsed = parseApplicationForm(formData, true);
   if (!parsed.input) {
-    const target = String(formData.get("applicationId") ?? "");
-    redirectWithError(`/applications/${target}`, parsed.error);
+    return { error: parsed.error };
   }
 
   const update = parsed.input as ApplicationUpdateInput;
 
   const { supabase, user, error: authError } = await requireUser();
   if (!supabase || !user) {
-    redirectWithError(`/applications/${update.applicationId}`, authError ?? "You must be signed in.");
+    return { error: authError ?? "You must be signed in." };
+  }
+
+  const { data: existing, error: loadError } = await supabase
+    .from("applications")
+    .select("id, job_proposal_file_path")
+    .eq("id", update.applicationId)
+    .eq("user_id", user.id)
+    .maybeSingle();
+  if (loadError || !existing) {
+    return { error: "Application not found." };
   }
 
   const platform = await resolvePlatformId(supabase, user.id, formData);
   if (!platform.ok) {
-    redirectWithError(`/applications/${update.applicationId}`, platform.error);
+    return { error: platform.error };
   }
+
+  const file = await saveProposalFile(supabase, user.id, update.applicationId, formData);
+  if (file.error) {
+    return { error: file.error };
+  }
+
+  const removeExisting = formData.get("removeProposalFile") === "on";
+  const previousPath = existing.job_proposal_file_path;
+  const nextPath = file.filePath ?? (removeExisting ? null : previousPath);
 
   const { error } = await supabase
     .from("applications")
@@ -505,12 +539,18 @@ export async function updateApplication(formData: FormData) {
       application_date: update.applicationDate,
       job_proposal_text: update.jobProposalText,
       job_proposal_url: update.jobProposalUrl,
+      job_proposal_file_path: nextPath,
     })
     .eq("id", update.applicationId)
     .eq("user_id", user.id);
 
   if (error) {
-    redirectWithError(`/applications/${update.applicationId}`, "Unable to update application.");
+    if (file.filePath) await removeProposalFile(supabase, file.filePath);
+    return { error: "Unable to update application." };
+  }
+
+  if (previousPath && previousPath !== nextPath) {
+    await removeProposalFile(supabase, previousPath);
   }
 
   revalidatePath("/applications");
