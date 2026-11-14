@@ -315,6 +315,44 @@ export interface Database {
           },
         ];
       };
+      profiles: {
+        Row: {
+          user_id: string;
+          full_name: string;
+          headline: string;
+          email: string;
+          phone: string;
+          location: string;
+          bio: string;
+          skills: string[];
+          links: Json;
+          languages: Json;
+          experiences: Json;
+          education: Json;
+          certifications: Json;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          user_id: string;
+          full_name?: string;
+          headline?: string;
+          email?: string;
+          phone?: string;
+          location?: string;
+          bio?: string;
+          skills?: string[];
+          links?: Json;
+          languages?: Json;
+          experiences?: Json;
+          education?: Json;
+          certifications?: Json;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["profiles"]["Insert"]>;
+        Relationships: [];
+      };
       reminder_dispatches: {
         Row: {
           id: string;

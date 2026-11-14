@@ -37,6 +37,10 @@ const CONTACT_MESSAGES: Record<string, string> = {
   deleted: "Contact deleted.",
 };
 
+const PROFILE_MESSAGES: Record<string, string> = {
+  "profile-saved": "Profile saved.",
+};
+
 const RESUME_MESSAGES: Record<string, string> = {
   uploaded: "Resume version uploaded.",
 };
@@ -44,6 +48,8 @@ const RESUME_MESSAGES: Record<string, string> = {
 function statusMessage(pathname: string, status: string): string {
   const table = pathname.startsWith("/contacts")
     ? CONTACT_MESSAGES
+    : pathname.startsWith("/profile")
+      ? PROFILE_MESSAGES
     : pathname.startsWith("/resumes")
       ? RESUME_MESSAGES
       : APPLICATION_MESSAGES;
