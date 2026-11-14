@@ -69,6 +69,9 @@ The lockfile is the source of truth; CI enforces `--frozen-lockfile` so local in
 | `RESEND_FROM_EMAIL` | `GestJobs <noreply@your-domain.com>` | A verified Resend sender |
 | `RESEND_REPLY_TO` | `you@example.com` | Your personal email *(optional)* |
 | `CRON_SECRET` | `a1b2...` *(64 hex chars)* | `openssl rand -hex 32` |
+| `OPENCODE_API_KEY` | `sk-...` | OpenCode → API keys *(optional; enables the AI features)* |
+| `AI_BASE_URL` | `https://opencode.ai/inference/go/anthropic` | Optional override (e.g. Zen: `https://opencode.ai/inference/anthropic`) |
+| `AI_MODEL` | `claude-haiku-5-5` | Optional override |
 
 3. Confirm `.env.local` is gitignored:
 
@@ -118,6 +121,9 @@ Use the managed project you created at [supabase.com/dashboard](https://supabase
    - `001_initial_schema.sql` — 9 tables, RLS, `create_default_statuses()` trigger
    - `002_storage_buckets.sql` — `resumes` and `proposals` private buckets
    - `003_reminder_trigger.sql` — `compute_next_reminder_at()` function, history trigger, partial unique index
+   - `004_profiles.sql` — candidate profile (one row per user)
+   - `005_fit_analyses.sql` — AI job fit analyses
+   - `006_drop_resumes.sql` — removes the old resume tables (delete the `resumes` bucket from the dashboard if unused)
 
 4. Seed the global platforms.  
    `supabase/seed.sql` is not executed automatically on hosted projects. Open the Supabase Dashboard SQL Editor and run the contents of `supabase/seed.sql`, or insert the 10 preloaded Latin-American job boards manually.
@@ -198,9 +204,9 @@ Complete these once after provisioning Supabase + Resend. They map directly to t
 3. Save and reopen the detail page → confirm platform and URL persisted.
 4. Change status → confirm the timeline shows the new history row.
 5. Paste proposal text, upload a PDF/DOCX, or link a proposal URL → confirm each persists.
-6. Attach a resume → confirm it appears on the detail page. Attach a different resume → confirm the previous one is replaced.
+6. Click **Analyse fit** in the *Job fit* card → you land on the analysis with score, cover letter and tailored CV (needs `OPENCODE_API_KEY` and a filled profile).
 7. Attach a contact with a role → confirm the contact appears. Remove the role → confirm the contact still exists in `/contacts`.
-8. Delete the application → confirm `application_status_history` and `application_resumes` rows are gone.
+8. Delete the application → confirm its `application_status_history` rows are gone; linked `fit_analyses` remain, unlinked.
 
 ### Contacts
 
@@ -209,13 +215,19 @@ Complete these once after provisioning Supabase + Resend. They map directly to t
 3. Link the same contact to two different applications with independent roles → both role rows persist.
 4. Delete an unlinked (orphan) contact → confirm 200 and the row is gone.
 
-### Resumes
+### Profile
 
-1. Visit `/resumes` and upload a PDF or DOCX under 10 MB.
-2. Confirm the file is stored under `resumes/<your-user-id>/...` in Supabase Storage.
-3. Open the signed URL → file downloads.
-4. Attach the resume to an application → confirm it appears on the detail page.
-5. Detach the resume → confirm the detail page shows “No resume attached”.
+1. Visit `/profile`, fill personal details, experience, education and skills, and save → reload and confirm everything persisted.
+2. With `OPENCODE_API_KEY` set, import a PDF or DOCX CV → the form fills in for review; email, phone and links are read locally. Nothing is saved until **Save profile**.
+3. Without the key, the import card shows "AI is not configured".
+
+### Job fit
+
+1. Visit `/fit`, paste a job description and click **Analyse fit** → you land on `/fit/<id>` with a 1–10 score and summary.
+2. Edit the cover letter, save and reload → the edit persisted. **Copy** puts it on the clipboard.
+3. **Download PDF** → the CV is one column and its text can be selected and copied in order.
+4. Paste a posting in Spanish → summary, letter and CV come back in Spanish.
+5. Use a LinkedIn URL with an empty description → you get the "paste the text instead" message.
 
 ### Reminders
 
@@ -311,6 +323,8 @@ In production the route is triggered by an **external cron service** (e.g. cron-
 | Magic link never arrives | Site URL mismatch in Supabase Auth | Set Auth → URL Configuration → Site URL to `http://localhost:3000` |
 | 401 on server actions | Missing Supabase URL/key or unauthenticated session | Verify `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, and the active login session |
 | Login shows "We couldn't reach the sign-in service" | Supabase project paused/deleted or wrong URL (DNS fails) | Restore the project in the Supabase dashboard and check `NEXT_PUBLIC_SUPABASE_URL` |
+| AI features show "AI is not configured" | `OPENCODE_API_KEY` missing | Add it to `.env.local` and restart `pnpm dev` |
+| AI calls fail with "rejected the API key" or "not found" | Wrong key, `AI_BASE_URL` or `AI_MODEL` | Check them against your OpenCode plan's endpoint and model list |
 | Cron returns 503 | `CRON_SECRET` or `SUPABASE_SECRET_KEY` missing | Check `.env.local` and restart `pnpm dev` |
 | Cron returns 0 sent but dashboard shows reminders | Resend env missing or invalid | Verify `RESEND_API_KEY` and `RESEND_FROM_EMAIL` are set and the sender domain is verified |
 | Upload rejected | File size > 10 MB or wrong MIME type | Use PDF or DOCX under 10 MB |

@@ -1,6 +1,6 @@
 # gestjobs
 
-A personal job-application tracker that keeps every role, status change, contact, resume version, and follow-up reminder in one place — so nothing falls through the cracks.
+A personal job-application tracker that keeps every role, status change, contact and follow-up reminder in one place, and uses AI to score how well you fit each job and draft a tailored cover letter and CV — so nothing falls through the cracks.
 
 > **Current status:** The MVP is implemented, tested, and ready to run with Supabase, Resend, and Vercel.
 
@@ -51,6 +51,9 @@ Copy `.env.example` to `.env.local` and fill in real values. `.env.local` is git
 | `RESEND_FROM_EMAIL` | A verified Resend sender | Reminder email `from` |
 | `RESEND_REPLY_TO` | Optional. Your email address | Reminder email `reply-to` |
 | `CRON_SECRET` | `openssl rand -hex 32` | Auth gate for `POST /api/cron/reminders` |
+| `OPENCODE_API_KEY` | OpenCode → API keys | **Server only.** AI features (CV import, job fit, cover letter, tailored CV). Optional: without it those features show a notice |
+| `AI_BASE_URL` | Optional. Defaults to `https://opencode.ai/inference/go/anthropic` | Any Anthropic-Messages-compatible endpoint |
+| `AI_MODEL` | Optional. Defaults to `claude-haiku-5-5` | Model used for every AI call |
 
 > **Security:** never commit `.env.local` or real keys. Rotate leaked credentials immediately. Legacy `NEXT_PUBLIC_SUPABASE_ANON_KEY` / `SUPABASE_SERVICE_ROLE_KEY` are still read as a fallback when the new keys are unset. The secret key is only ever used in `src/app/api/cron/reminders/route.ts` and never crosses the client bundle.
 
@@ -91,7 +94,8 @@ The reminder endpoint is **POST-only**, while Vercel native cron sends **GET** r
 |------|----------|
 | Authentication and security | Magic-link auth, SSR sessions, Postgres RLS, private storage, and scoped service-role access |
 | Job tracking | Applications CRUD, statuses, immutable history, platform URLs, and proposal capture |
-| Platforms and contacts | Seeded platform catalog, hostname inference, custom platforms, contacts, and resume versioning |
+| Platforms and contacts | Seeded platform catalog, hostname inference, custom platforms and contacts |
+| Profile and AI job fit | Structured profile (with AI import from a PDF/DOCX CV), 1-10 fit score with summary, editable cover letter and an ATS-friendly tailored CV PDF, in the posting's language |
 | Reminders and dashboard | Scheduled reminders, idempotent Resend delivery, protected cron endpoint, counters, and pending list |
 | Developer workflow | Vitest tests, ESLint, CI, smoke-test checklist, and production build |
 
@@ -121,7 +125,8 @@ User ──→ Next.js App Router (RSC + Server Actions)
               │
               ├──→ Supabase Auth (magic-link session)
               ├──→ Supabase Postgres  + RLS (tenants = `user_id`)
-              ├──→ Supabase Storage (resumes + proposal files; signed URLs)
+              ├──→ Supabase Storage (proposal files; signed URLs)
+              ├──→ AI gateway (OpenCode, Anthropic Messages API): profile without contact details + job posting
               │
               ├──→ External cron provider ─→ POST /api/cron/reminders
               │     (cron-job.org / GitHub Actions, never Vercel native)
@@ -183,17 +188,22 @@ Full per-scenario checklist (every spec scenario mapped to a static check or run
 │   │   ├── applications/     List, new, detail + Server Actions (8 actions)
 │   │   ├── contacts/         Directory + CRUD Server Actions
 │   │   ├── dashboard/        Counters + pending reminders RSC
-│   │   └── resumes/          Upload + signed-URL download
+│   │   ├── profile/          Candidate profile editor + AI CV import
+│   │   └── fit/              Job fit analyses, cover letter, CV PDF route
 │   ├── components/           PlatformCombobox (native ARIA, 336 lines)
 │   ├── lib/
+│   │   ├── ai/               AI client, CV import, fit analysis, contact redaction
+│   │   ├── cv/               CV labels/dates + ATS PDF renderer
 │   │   ├── email/resend.ts   Idempotent email sender
+│   │   ├── jobs/             Job posting URL reader (JSON-LD + SSRF guard)
 │   │   ├── platforms/        infer + seed (PR 2)
 │   │   ├── reminders/        schedule.ts (PR 5)
 │   │   ├── supabase/         SSR + browser clients + Database stub
-│   │   └── validation/       Zod schemas for application / contact / resume
+│   │   └── validation/       Zod schemas for application / contact / profile
 │   └── middleware.ts         Supabase session refresh
 ├── supabase/
-│   ├── migrations/           001 schema, 002 buckets, 003 reminder trigger
+│   ├── migrations/           001 schema, 002 buckets, 003 reminder trigger,
+│                             004 profiles, 005 fit analyses, 006 drop resumes
 │   └── seed.sql              10 global platforms (LinkedIn, Indeed, etc.)
 ├── tests/                    Vitest unit tests (PR 6)
 │   ├── platforms/infer.test.ts
@@ -225,7 +235,6 @@ Full per-scenario checklist (every spec scenario mapped to a static check or run
 | Dashboard | [spec.md](openspec/changes/gestjobs-mvp/specs/dashboard/spec.md) |
 | Platforms | [spec.md](openspec/changes/gestjobs-mvp/specs/platforms/spec.md) |
 | Reminders | [spec.md](openspec/changes/gestjobs-mvp/specs/reminders/spec.md) |
-| Resumes | [spec.md](openspec/changes/gestjobs-mvp/specs/resumes/spec.md) |
 
 ---
 
