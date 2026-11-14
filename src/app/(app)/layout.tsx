@@ -11,6 +11,7 @@ const navLinks = [
   { href: "/applications", label: "Applications" },
   { href: "/contacts", label: "Contacts" },
   { href: "/profile", label: "Profile" },
+  { href: "/fit", label: "Job fit" },
   { href: "/resumes", label: "Resumes" },
 ];
 

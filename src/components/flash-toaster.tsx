@@ -41,18 +41,26 @@ const PROFILE_MESSAGES: Record<string, string> = {
   "profile-saved": "Profile saved.",
 };
 
+const FIT_MESSAGES: Record<string, string> = {
+  analysed: "Analysis ready.",
+  "letter-saved": "Cover letter saved.",
+  "analysis-deleted": "Analysis deleted.",
+};
+
 const RESUME_MESSAGES: Record<string, string> = {
   uploaded: "Resume version uploaded.",
 };
 
+const MESSAGES_BY_PATH: Array<[prefix: string, table: Record<string, string>]> = [
+  ["/contacts", CONTACT_MESSAGES],
+  ["/profile", PROFILE_MESSAGES],
+  ["/fit", FIT_MESSAGES],
+  ["/resumes", RESUME_MESSAGES],
+];
+
 function statusMessage(pathname: string, status: string): string {
-  const table = pathname.startsWith("/contacts")
-    ? CONTACT_MESSAGES
-    : pathname.startsWith("/profile")
-      ? PROFILE_MESSAGES
-    : pathname.startsWith("/resumes")
-      ? RESUME_MESSAGES
-      : APPLICATION_MESSAGES;
+  const table =
+    MESSAGES_BY_PATH.find(([prefix]) => pathname.startsWith(prefix))?.[1] ?? APPLICATION_MESSAGES;
   return table[status] ?? "Done.";
 }
 

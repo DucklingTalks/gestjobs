@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
+import { FitScoreBadge } from "@/components/fit-score";
 import { SubmitButton } from "@/components/form-buttons";
 import {
   Alert,
@@ -10,6 +11,7 @@ import {
   fieldClass,
   formatDate,
   formatDateTime,
+  formatRelative,
   hostnameOf,
   labelClass,
   PageHeader,
@@ -27,6 +29,7 @@ import {
   detachContact,
   detachResume,
 } from "../actions";
+import { analyzeApplication } from "../../fit/actions";
 
 export const metadata: Metadata = { title: "Application detail" };
 
@@ -234,6 +237,15 @@ export default async function ApplicationDetailPage({
     resumeSignedUrl = data?.signedUrl ?? null;
   }
 
+  const { data: latestFit } = await supabase
+    .from("fit_analyses")
+    .select("id, score, summary, created_at")
+    .eq("application_id", id)
+    .eq("user_id", user.id)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
   const hasProposal = Boolean(
     detail.job_proposal_text || detail.job_proposal_url || detail.job_proposal_file_path,
   );
@@ -379,6 +391,35 @@ export default async function ApplicationDetailPage({
               <DetailRow label="Applied">{formatDate(detail.application_date)}</DetailRow>
               <DetailRow label="Last updated">{formatDateTime(detail.updated_at)}</DetailRow>
             </dl>
+          </Card>
+
+          <Card title="Job fit">
+            {latestFit ? (
+              <div className="mb-4 space-y-2">
+                <div className="flex items-center gap-2">
+                  <FitScoreBadge score={latestFit.score} />
+                  <span className="text-xs text-slate-500">{formatRelative(latestFit.created_at)}</span>
+                </div>
+                <p className="line-clamp-4 text-sm text-slate-700">{latestFit.summary}</p>
+                <Link href={`/fit/${latestFit.id}`} className={`text-sm ${buttonStyles.link}`}>
+                  Cover letter &amp; tailored CV →
+                </Link>
+              </div>
+            ) : (
+              <p className="mb-4 text-sm text-slate-500">
+                Score how well your profile matches this role and get a cover letter and a tailored CV.
+              </p>
+            )}
+            <form action={analyzeApplication}>
+              <input type="hidden" name="applicationId" value={detail.id} />
+              <SubmitButton
+                variant="secondary"
+                pendingLabel="Analysing…"
+                className="w-full"
+              >
+                {latestFit ? "Analyse again" : "Analyse fit"}
+              </SubmitButton>
+            </form>
           </Card>
 
           <Card title="Resume">

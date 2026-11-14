@@ -353,6 +353,52 @@ export interface Database {
         Update: Partial<Database["public"]["Tables"]["profiles"]["Insert"]>;
         Relationships: [];
       };
+      fit_analyses: {
+        Row: {
+          id: string;
+          user_id: string;
+          application_id: string | null;
+          job_title: string;
+          company: string;
+          job_source_url: string | null;
+          job_text: string;
+          language: string;
+          score: number;
+          summary: string;
+          cover_letter: string;
+          cv: Json;
+          model: string;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          application_id?: string | null;
+          job_title?: string;
+          company?: string;
+          job_source_url?: string | null;
+          job_text: string;
+          language?: string;
+          score: number;
+          summary: string;
+          cover_letter?: string;
+          cv?: Json;
+          model?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["fit_analyses"]["Insert"]>;
+        Relationships: [
+          {
+            foreignKeyName: "fit_analyses_application_id_fkey";
+            columns: ["application_id"];
+            isOneToOne: false;
+            referencedRelation: "applications";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       reminder_dispatches: {
         Row: {
           id: string;
