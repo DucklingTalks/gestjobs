@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
 import { Alert, PageHeader, PageShell } from "@/components/ui";
+import { isAiConfigured } from "@/lib/ai/client";
 import { createClient } from "@/lib/supabase/server";
 import { profileFromRow } from "@/lib/validation/profile";
 
@@ -39,7 +40,7 @@ export default async function ProfilePage() {
           <Alert tone="error">Unable to load your profile. Refresh to try again.</Alert>
         </div>
       ) : null}
-      <ProfileForm initial={profile} />
+      <ProfileForm initial={profile} aiEnabled={isAiConfigured()} />
     </PageShell>
   );
 }

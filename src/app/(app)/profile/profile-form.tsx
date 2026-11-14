@@ -9,20 +9,14 @@
  * before the user reviews and saves.
  */
 
-import {
-  startTransition,
-  useActionState,
-  useEffect,
-  useRef,
-  useState,
-  type ReactNode,
-} from "react";
+import { startTransition, useActionState, useCallback, useEffect, useRef, useState } from "react";
 
 import { SubmitButton } from "@/components/form-buttons";
 import { Alert, buttonStyles, Card, fieldClass, labelClass } from "@/components/ui";
 import type { Profile } from "@/lib/validation/profile";
 
 import { saveProfile, type ProfileFormState } from "./actions";
+import { ImportResume } from "./import-resume";
 
 const initialState: ProfileFormState = { error: null };
 
@@ -51,14 +45,7 @@ function splitSkills(value: string): string[] {
     .filter(Boolean);
 }
 
-export function ProfileForm({
-  initial,
-  toolbar,
-}: {
-  initial: Profile;
-  /** Rendered above the form, receives a setter so it can replace the profile. */
-  toolbar?: (replace: (next: Profile) => void) => ReactNode;
-}) {
+export function ProfileForm({ initial, aiEnabled }: { initial: Profile; aiEnabled: boolean }) {
   const [profile, setProfile] = useState<Profile>(initial);
   const [skillsText, setSkillsText] = useState(initial.skills.join(", "));
   const [state, formAction, isPending] = useActionState(saveProfile, initialState);
@@ -68,10 +55,10 @@ export function ProfileForm({
     if (state.error) errorRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
   }, [state]);
 
-  const replace = (next: Profile) => {
+  const replace = useCallback((next: Profile) => {
     setProfile(next);
     setSkillsText(next.skills.join(", "));
-  };
+  }, []);
 
   const set = <K extends keyof Profile>(key: K, value: Profile[K]) =>
     setProfile((prev) => ({ ...prev, [key]: value }));
@@ -143,7 +130,11 @@ export function ProfileForm({
 
   return (
     <div className="space-y-6">
-      {toolbar?.(replace)}
+      <ImportResume
+        current={{ ...profile, skills: splitSkills(skillsText) }}
+        onImported={replace}
+        aiEnabled={aiEnabled}
+      />
 
       <form onSubmit={handleSubmit} className="space-y-6">
         {state.error ? (
