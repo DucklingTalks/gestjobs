@@ -1,12 +1,20 @@
 import { headers } from "next/headers";
+import Link from "next/link";
 import { redirect } from "next/navigation";
 
+import { SubmitButton } from "@/components/form-buttons";
+import { Alert, fieldClass, labelClass } from "@/components/ui";
 import { createClient } from "@/lib/supabase/server";
 import { signInWithOtp } from "./actions";
 
 type SearchParams = {
   error?: string;
   status?: string;
+};
+
+const ERROR_MESSAGES: Record<string, string> = {
+  "missing-email": "Enter your email address to receive a sign-in link.",
+  "auth-callback": "That sign-in link is missing information. Request a new one.",
 };
 
 export default async function LoginPage({
@@ -30,60 +38,66 @@ export default async function LoginPage({
   const configuredOrigin = appUrl?.replace(/\/$/, "") ?? "";
   const origin = requestOrigin || configuredOrigin;
 
+  const otpSent = status === "otp-sent";
+
   return (
-    <main className="mx-auto flex min-h-screen max-w-md flex-col justify-center px-6 py-16">
-      <div className="space-y-2 text-center">
-        <p className="text-sm font-medium uppercase tracking-wide text-accent-600">
-          gestjobs
-        </p>
-        <h1 className="text-2xl font-semibold tracking-tight text-slate-900">
-          Sign in with a magic link
-        </h1>
-        <p className="text-sm text-slate-600">
-          We will email you a one-time link. No password required.
-        </p>
+    <main className="flex min-h-screen items-center justify-center bg-slate-50 px-4 py-16">
+      <div className="w-full max-w-sm space-y-6">
+        <div className="space-y-2 text-center">
+          <Link
+            href="/"
+            className="inline-flex items-center gap-2 text-sm font-semibold text-slate-900"
+          >
+            <span
+              aria-hidden="true"
+              className="grid h-7 w-7 place-items-center rounded-md bg-accent-600 text-sm font-bold text-white"
+            >
+              g
+            </span>
+            gestjobs
+          </Link>
+          <h1 className="text-2xl font-semibold tracking-tight text-slate-900">
+            {otpSent ? "Check your inbox" : "Sign in"}
+          </h1>
+          <p className="text-sm text-slate-600">
+            {otpSent
+              ? "We sent you a one-time sign-in link. Open it on this device to continue."
+              : "We will email you a one-time link. No password required."}
+          </p>
+        </div>
+
+        <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+          {status === "signed-out" ? (
+            <div className="mb-4">
+              <Alert tone="success">You have been signed out.</Alert>
+            </div>
+          ) : null}
+          {error ? (
+            <div className="mb-4">
+              <Alert tone="error">{ERROR_MESSAGES[error] ?? error}</Alert>
+            </div>
+          ) : null}
+
+          <form action={signInWithOtp} className="space-y-4">
+            <input type="hidden" name="origin" value={origin} />
+            <label className={labelClass}>
+              Email
+              <input
+                type="email"
+                name="email"
+                required
+                autoFocus
+                autoComplete="email"
+                placeholder="you@example.com"
+                className={fieldClass}
+              />
+            </label>
+            <SubmitButton pendingLabel="Sending link…" className="w-full">
+              {otpSent ? "Resend magic link" : "Send magic link"}
+            </SubmitButton>
+          </form>
+        </div>
       </div>
-
-      <form action={signInWithOtp} className="mt-8 space-y-4">
-        <input type="hidden" name="origin" value={origin} />
-
-        <label className="block text-sm font-medium text-slate-700">
-          Email
-          <input
-            type="email"
-            name="email"
-            required
-            autoComplete="email"
-            placeholder="you@example.com"
-            className="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-base text-slate-900 shadow-sm focus:border-accent-500 focus:outline-none focus:ring-2 focus:ring-accent-500"
-          />
-        </label>
-
-        <button
-          type="submit"
-          className="inline-flex w-full items-center justify-center rounded-md bg-accent-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-accent-700"
-        >
-          Send magic link
-        </button>
-      </form>
-
-      {status === "otp-sent" ? (
-        <p
-          role="status"
-          className="mt-4 rounded-md border border-accent-100 bg-accent-50 px-3 py-2 text-sm text-accent-700"
-        >
-          Check your inbox for the sign-in link.
-        </p>
-      ) : null}
-
-      {error ? (
-        <p
-          role="alert"
-          className="mt-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700"
-        >
-          {error}
-        </p>
-      ) : null}
     </main>
   );
 }

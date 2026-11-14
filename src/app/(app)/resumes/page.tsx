@@ -1,6 +1,19 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
+import { SubmitButton } from "@/components/form-buttons";
+import {
+  Alert,
+  buttonStyles,
+  Card,
+  EmptyState,
+  fieldClass,
+  formatDate,
+  formatFileSize,
+  labelClass,
+  PageHeader,
+  PageShell,
+} from "@/components/ui";
 import { createClient } from "@/lib/supabase/server";
 import { MAX_RESUME_FILE_SIZE_MB } from "@/lib/validation/resume";
 
@@ -8,14 +21,7 @@ import { uploadResume } from "./actions";
 
 export const metadata: Metadata = { title: "Resumes" };
 
-type SearchParams = { error?: string; status?: string };
-
-export default async function ResumesPage({
-  searchParams,
-}: {
-  searchParams: Promise<SearchParams>;
-}) {
-  const messages = await searchParams;
+export default async function ResumesPage() {
   const supabase = await createClient();
   const {
     data: { user },
@@ -37,48 +43,96 @@ export default async function ResumesPage({
   );
 
   return (
-    <main className="mx-auto min-h-screen max-w-4xl space-y-8 px-6 py-12">
-      <header>
-        <p className="text-sm font-medium uppercase tracking-wide text-accent-600">gestjobs</p>
-        <h1 className="mt-1 text-3xl font-semibold text-slate-900">Resume versions</h1>
-        <p className="mt-2 text-sm text-slate-600">Upload private PDF or DOCX versions and label each one for reuse.</p>
-      </header>
+    <PageShell width="4xl">
+      <PageHeader
+        title="Resumes"
+        description="Upload labelled versions of your resume and attach the exact one you sent to each application."
+      />
 
-      {messages.error || error ? (
-        <p role="alert" className="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-          {messages.error ?? "Unable to load resume versions."}
-        </p>
-      ) : null}
-      {messages.status === "uploaded" ? (
-        <p role="status" className="rounded-md border border-accent-100 bg-accent-50 px-4 py-3 text-sm text-accent-700">Resume version uploaded.</p>
+      {error ? (
+        <Alert tone="error">Unable to load resume versions. Refresh to try again.</Alert>
       ) : null}
 
-      <section className="rounded-lg border border-slate-200 p-5">
-        <h2 className="text-lg font-semibold">Upload a version</h2>
-        <form action={uploadResume} className="mt-4 grid gap-4 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
-          <label className="text-sm font-medium text-slate-700">Label *<input name="label" required maxLength={120} placeholder="Frontend-Senior" className="mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm" /></label>
-          <label className="text-sm font-medium text-slate-700">File *<input name="file" type="file" required accept="application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,.pdf,.docx" className="mt-1 block w-full text-sm text-slate-700" /></label>
-          <button className="rounded-md bg-accent-600 px-4 py-2 text-sm font-medium text-white hover:bg-accent-700">Upload</button>
+      <Card
+        title="Upload a version"
+        description={`PDF or DOCX, up to ${MAX_RESUME_FILE_SIZE_MB} MB. Files are private; download links expire after one hour.`}
+      >
+        <form
+          action={uploadResume}
+          className="grid gap-4 sm:grid-cols-[1fr_1fr_auto] sm:items-end"
+        >
+          <label className={labelClass}>
+            Label <span className="text-red-600" aria-hidden="true">*</span>
+            <input
+              name="label"
+              required
+              maxLength={120}
+              placeholder="Frontend – Senior"
+              className={fieldClass}
+            />
+          </label>
+          <label className={labelClass}>
+            File <span className="text-red-600" aria-hidden="true">*</span>
+            <input
+              name="file"
+              type="file"
+              required
+              accept="application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,.pdf,.docx"
+              className="mt-1.5 block w-full text-sm text-slate-600"
+            />
+          </label>
+          <SubmitButton pendingLabel="Uploading…">Upload</SubmitButton>
         </form>
-        <p className="mt-3 text-xs text-slate-500">Maximum {MAX_RESUME_FILE_SIZE_MB} MB. Files stay private; download links expire after one hour.</p>
-      </section>
+      </Card>
 
       <section className="space-y-3">
-        <h2 className="text-lg font-semibold">Versions</h2>
-        {!versions.length ? <p className="text-sm text-slate-500">No resume versions yet.</p> : null}
-        {versions.map((resume) => (
-          <article key={resume.id} className="rounded-lg border border-slate-200 p-4">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <h3 className="font-medium text-slate-900">{resume.label}</h3>
-                <p className="text-xs text-slate-500">{(resume.file_size / 1024).toFixed(1)} KB · {new Date(resume.created_at).toLocaleString("en")}</p>
-              </div>
-              {resume.signedUrl ? <a href={resume.signedUrl} className="text-sm font-medium text-accent-700 hover:text-accent-800">Download</a> : <span className="text-xs text-red-700">Download unavailable</span>}
-            </div>
-            <p className="mt-2 truncate font-mono text-xs text-slate-400" title={resume.file_hash}>SHA-256 {resume.file_hash}</p>
-          </article>
-        ))}
+        <h2 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-slate-500">
+          Versions
+          {versions.length ? <span className="font-normal">{versions.length}</span> : null}
+        </h2>
+        {!versions.length ? (
+          <EmptyState
+            title="No resume versions yet"
+            description="Upload your first resume above. You can keep several versions tailored to different roles."
+          />
+        ) : (
+          <ul className="divide-y divide-slate-100 overflow-hidden rounded-xl border border-slate-200 bg-white">
+            {versions.map((resume) => (
+              <li
+                key={resume.id}
+                className="flex flex-wrap items-center justify-between gap-3 px-4 py-3"
+              >
+                <div className="flex min-w-0 items-center gap-3">
+                  <span
+                    aria-hidden="true"
+                    className="grid h-9 w-9 shrink-0 place-items-center rounded-md bg-slate-100 text-[10px] font-bold uppercase text-slate-500"
+                  >
+                    {fileExtension(resume.file_path)}
+                  </span>
+                  <div className="min-w-0">
+                    <p className="truncate font-medium text-slate-900">{resume.label}</p>
+                    <p className="text-sm text-slate-500" title={`SHA-256 ${resume.file_hash}`}>
+                      {formatFileSize(resume.file_size)} · Uploaded {formatDate(resume.created_at)}
+                    </p>
+                  </div>
+                </div>
+                {resume.signedUrl ? (
+                  <a href={resume.signedUrl} className={buttonStyles.secondary}>
+                    Download
+                  </a>
+                ) : (
+                  <span className="text-xs text-red-700">Download unavailable</span>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
       </section>
-    </main>
+    </PageShell>
   );
+}
+
+function fileExtension(path: string): string {
+  const ext = path.split(".").pop() ?? "";
+  return ext.length <= 4 ? ext : "file";
 }

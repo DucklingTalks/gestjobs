@@ -2,11 +2,30 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
+import {
+  Alert,
+  buttonStyles,
+  Chip,
+  EmptyState,
+  formatDate,
+  formatRelative,
+  hostnameOf,
+  PageHeader,
+  PageShell,
+  StatusBadge,
+} from "@/components/ui";
 import { createClient } from "@/lib/supabase/server";
 
 export const metadata: Metadata = { title: "Applications" };
 
-type SearchParams = { error?: string; status?: string };
+type SearchParams = { filter?: string };
+
+type StatusInfo = {
+  id: string;
+  name: string;
+  is_terminal: boolean | null;
+  sort_order: number | null;
+};
 
 type ApplicationRow = {
   id: string;
@@ -15,7 +34,7 @@ type ApplicationRow = {
   platform_url: string;
   application_date: string;
   updated_at: string;
-  status: { id: string; name: string; is_terminal: boolean | null } | null;
+  status: StatusInfo | null;
   platform: { id: string; name: string; hostname: string } | null;
 };
 
@@ -31,31 +50,25 @@ export default async function ApplicationsPage({
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
+  const newButton = (
+    <Link href="/applications/new" className={buttonStyles.primary}>
+      + New application
+    </Link>
+  );
+
   const { data: applications, error } = await supabase
     .from("applications")
     .select(
-      "id, company_name, position_title, platform_url, application_date, updated_at, status:statuses(id, name, is_terminal), platform:platforms(id, name, hostname)",
+      "id, company_name, position_title, platform_url, application_date, updated_at, status:statuses(id, name, is_terminal, sort_order), platform:platforms(id, name, hostname)",
     )
     .order("updated_at", { ascending: false });
 
   if (error) {
     return (
-      <main className="mx-auto min-h-screen max-w-5xl space-y-6 px-6 py-12">
-        <header>
-          <p className="text-sm font-medium uppercase tracking-wide text-accent-600">
-            gestjobs
-          </p>
-          <h1 className="mt-1 text-3xl font-semibold text-slate-900">
-            Applications
-          </h1>
-        </header>
-        <p
-          role="alert"
-          className="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
-        >
-          Unable to load applications.
-        </p>
-      </main>
+      <PageShell>
+        <PageHeader title="Applications" actions={newButton} />
+        <Alert tone="error">Unable to load applications. Refresh to try again.</Alert>
+      </PageShell>
     );
   }
 
@@ -65,139 +78,130 @@ export default async function ApplicationsPage({
     platform: Array.isArray(row.platform) ? row.platform[0] ?? null : row.platform,
   }));
 
-  const grouped = rows.reduce<Record<string, ApplicationRow[]>>((acc, row) => {
-    const key = row.status?.name ?? "Unknown";
-    acc[key] = acc[key] ?? [];
-    acc[key].push(row);
-    return acc;
-  }, {});
-
-  const statusOrder = Object.keys(grouped).sort((a, b) => {
-    const aTerminal = grouped[a]?.[0]?.status?.is_terminal ? 1 : 0;
-    const bTerminal = grouped[b]?.[0]?.status?.is_terminal ? 1 : 0;
-    if (aTerminal !== bTerminal) return aTerminal - bTerminal;
-    return a.localeCompare(b);
+  // Group by status, keeping the workflow order (sort_order) instead of
+  // alphabetical so "Applied → Screening → Interview…" reads top-down.
+  const groups = new Map<string, { status: StatusInfo | null; rows: ApplicationRow[] }>();
+  for (const row of rows) {
+    const key = row.status?.id ?? "unknown";
+    const group = groups.get(key) ?? { status: row.status, rows: [] };
+    group.rows.push(row);
+    groups.set(key, group);
+  }
+  const ordered = [...groups.entries()].sort(([, a], [, b]) => {
+    const aT = a.status?.is_terminal ? 1 : 0;
+    const bT = b.status?.is_terminal ? 1 : 0;
+    if (aT !== bT) return aT - bT;
+    return (a.status?.sort_order ?? 999) - (b.status?.sort_order ?? 999);
   });
 
-  return (
-    <main className="mx-auto min-h-screen max-w-5xl space-y-8 px-6 py-12">
-      <header className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <p className="text-sm font-medium uppercase tracking-wide text-accent-600">
-            gestjobs
-          </p>
-          <h1 className="mt-1 text-3xl font-semibold text-slate-900">
-            Applications
-          </h1>
-          <p className="mt-2 text-sm text-slate-600">
-            Track every opportunity, grouped by its current status.
-          </p>
-        </div>
-        <Link
-          href="/applications/new"
-          className="inline-flex items-center rounded-md bg-accent-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:bg-accent-700"
-        >
-          New application
-        </Link>
-      </header>
+  const activeFilter = messages.filter && groups.has(messages.filter) ? messages.filter : null;
+  const visible = activeFilter ? ordered.filter(([key]) => key === activeFilter) : ordered;
 
-      {messages.error ? (
-        <p
-          role="alert"
-          className="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
-        >
-          {messages.error}
-        </p>
-      ) : null}
-      {messages.status ? (
-        <p
-          role="status"
-          className="rounded-md border border-accent-100 bg-accent-50 px-4 py-3 text-sm text-accent-700"
-        >
-          {renderStatusMessage(messages.status)}
-        </p>
-      ) : null}
+  return (
+    <PageShell>
+      <PageHeader
+        title="Applications"
+        description="Every opportunity, grouped by its current status."
+        actions={newButton}
+      />
 
       {!rows.length ? (
-        <p className="rounded-md border border-slate-200 bg-slate-50 px-4 py-6 text-sm text-slate-600">
-          No applications yet. Create your first one.
-        </p>
-      ) : null}
-
-      {statusOrder.map((statusName) => (
-        <section key={statusName} className="space-y-3">
-          <h2 className="flex items-center gap-2 text-lg font-semibold text-slate-900">
-            {statusName}
-            <span className="text-xs font-normal text-slate-500">
-              {grouped[statusName].length}
-            </span>
-          </h2>
-          <ul className="space-y-2">
-            {grouped[statusName].map((row) => (
-              <li
-                key={row.id}
-                className="rounded-lg border border-slate-200 px-4 py-3"
+        <EmptyState
+          title="No applications yet"
+          description="Paste the job posting URL and gestjobs detects the platform for you."
+          action={newButton}
+        />
+      ) : (
+        <>
+          <nav aria-label="Filter by status" className="-mx-1 flex flex-wrap gap-2">
+            <FilterPill href="/applications" active={!activeFilter}>
+              All <span className="tabular-nums opacity-70">{rows.length}</span>
+            </FilterPill>
+            {ordered.map(([key, group]) => (
+              <FilterPill
+                key={key}
+                href={`/applications?filter=${key}`}
+                active={activeFilter === key}
               >
-                <Link
-                  href={`/applications/${row.id}`}
-                  className="block hover:bg-slate-50"
-                >
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <div className="font-medium text-slate-900">
-                      {row.position_title}
-                      <span className="font-normal text-slate-500"> · {row.company_name}</span>
-                    </div>
-                    <div className="text-xs text-slate-500">
-                      Updated {new Date(row.updated_at).toLocaleDateString("en")}
-                    </div>
-                  </div>
-                  <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-slate-500">
-                    <span className="rounded-full bg-slate-100 px-2 py-0.5 text-slate-700">
-                      {row.platform?.name ?? "Platform"}
-                    </span>
-                    <a
-                      href={row.platform_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="truncate text-accent-700 hover:text-accent-800"
-                    >
-                      {row.platform_url}
-                    </a>
-                    <span className="text-slate-400">
-                      Applied {row.application_date}
-                    </span>
-                  </div>
-                </Link>
-              </li>
+                {group.status?.name ?? "Unknown"}{" "}
+                <span className="tabular-nums opacity-70">{group.rows.length}</span>
+              </FilterPill>
             ))}
-          </ul>
-        </section>
-      ))}
-    </main>
+          </nav>
+
+          {visible.map(([key, group]) => (
+            <section key={key} className="space-y-3">
+              <h2 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-slate-500">
+                {group.status?.name ?? "Unknown"}
+                <span className="font-normal">{group.rows.length}</span>
+              </h2>
+              <ul className="divide-y divide-slate-100 overflow-hidden rounded-xl border border-slate-200 bg-white">
+                {group.rows.map((row) => (
+                  <li
+                    key={row.id}
+                    className="relative flex flex-wrap items-center justify-between gap-3 px-4 py-3 transition hover:bg-slate-50"
+                  >
+                    <div className="min-w-0">
+                      <Link
+                        href={`/applications/${row.id}`}
+                        className="font-medium text-slate-900 after:absolute after:inset-0"
+                      >
+                        {row.position_title}
+                      </Link>
+                      <p className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-slate-500">
+                        <span>{row.company_name}</span>
+                        <span aria-hidden="true">·</span>
+                        <span>Applied {formatDate(row.application_date)}</span>
+                      </p>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <StatusBadge name={row.status?.name} />
+                      <a
+                        href={row.platform_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        title={row.platform_url}
+                        className="relative z-10"
+                      >
+                        <Chip>{row.platform?.name ?? hostnameOf(row.platform_url)} ↗</Chip>
+                      </a>
+                      <span className="text-xs text-slate-400">
+                        Updated {formatRelative(row.updated_at)}
+                      </span>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ))}
+        </>
+      )}
+    </PageShell>
   );
 }
 
-function renderStatusMessage(status: string): string {
-  switch (status) {
-    case "created":
-      return "Application created.";
-    case "updated":
-      return "Application updated.";
-    case "deleted":
-      return "Application deleted.";
-    case "changed":
-      return "Status updated.";
-    case "unchanged":
-      return "Status was already up to date.";
-    case "resume-attached":
-      return "Resume attached.";
-    case "resume-detached":
-      return "Resume detached.";
-    case "contact-attached":
-      return "Contact attached.";
-    case "contact-detached":
-      return "Contact detached.";
-    default:
-      return `Application ${status}.`;
-  }
+function FilterPill({
+  href,
+  active,
+  children,
+}: {
+  href: string;
+  active: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <Link
+      href={href}
+      aria-current={active ? "page" : undefined}
+      className={
+        "rounded-full border px-3 py-1 text-sm font-medium transition " +
+        (active
+          ? "border-accent-600 bg-accent-600 text-white"
+          : "border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50")
+      }
+    >
+      {children}
+    </Link>
+  );
 }
+

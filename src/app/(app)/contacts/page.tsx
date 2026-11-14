@@ -1,23 +1,24 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
+import { SubmitButton } from "@/components/form-buttons";
+import {
+  Alert,
+  buttonStyles,
+  Card,
+  EmptyState,
+  fieldClass,
+  labelClass,
+  PageHeader,
+  PageShell,
+} from "@/components/ui";
 import { createClient } from "@/lib/supabase/server";
 
 import { createContact, deleteContact, updateContact } from "./actions";
 
 export const metadata: Metadata = { title: "Contacts" };
 
-type SearchParams = { error?: string; status?: string };
-
-const fieldClass =
-  "mt-1 block w-full rounded-md border border-slate-300 px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-accent-500 focus:outline-none focus:ring-2 focus:ring-accent-500";
-
-export default async function ContactsPage({
-  searchParams,
-}: {
-  searchParams: Promise<SearchParams>;
-}) {
-  const messages = await searchParams;
+export default async function ContactsPage() {
   const supabase = await createClient();
   const {
     data: { user },
@@ -30,47 +31,101 @@ export default async function ContactsPage({
     .order("name");
 
   return (
-    <main className="mx-auto min-h-screen max-w-4xl space-y-8 px-6 py-12">
-      <header>
-        <p className="text-sm font-medium uppercase tracking-wide text-accent-600">gestjobs</p>
-        <h1 className="mt-1 text-3xl font-semibold text-slate-900">Contacts</h1>
-        <p className="mt-2 text-sm text-slate-600">Keep a reusable directory of recruiters, referrers, and hiring managers.</p>
-      </header>
+    <PageShell width="4xl">
+      <PageHeader
+        title="Contacts"
+        description="A reusable directory of recruiters, referrers, and hiring managers you can link to any application."
+      />
 
-      {messages.error || error ? (
-        <p role="alert" className="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-          {messages.error ?? "Unable to load contacts."}
-        </p>
-      ) : null}
-      {messages.status ? (
-        <p role="status" className="rounded-md border border-accent-100 bg-accent-50 px-4 py-3 text-sm text-accent-700">
-          Contact {messages.status}.
-        </p>
-      ) : null}
+      {error ? <Alert tone="error">Unable to load contacts. Refresh to try again.</Alert> : null}
 
-      <section className="rounded-lg border border-slate-200 p-5">
-        <h2 className="text-lg font-semibold">Add contact</h2>
-        <ContactFields action={createContact} submitLabel="Add contact" />
-      </section>
+      <Card title="Add a contact">
+        <ContactFields action={createContact} submitLabel="Add contact" pendingLabel="Adding…" />
+      </Card>
 
       <section className="space-y-3">
-        <h2 className="text-lg font-semibold">Directory</h2>
-        {!contacts?.length ? <p className="text-sm text-slate-500">No contacts yet.</p> : null}
-        {contacts?.map((contact) => (
-          <details key={contact.id} className="rounded-lg border border-slate-200 p-4">
-            <summary className="cursor-pointer font-medium text-slate-900">
-              {contact.name}{contact.email ? <span className="ml-2 font-normal text-slate-500">{contact.email}</span> : null}
-            </summary>
-            <ContactFields action={updateContact} contact={contact} submitLabel="Save changes" />
-            <form action={deleteContact} className="mt-3 border-t border-slate-100 pt-3">
-              <input type="hidden" name="id" value={contact.id} />
-              <button className="text-sm font-medium text-red-700 hover:text-red-800">Delete contact</button>
-            </form>
-          </details>
-        ))}
+        <h2 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-slate-500">
+          Directory
+          {contacts?.length ? <span className="font-normal">{contacts.length}</span> : null}
+        </h2>
+        {!contacts?.length ? (
+          <EmptyState
+            title="No contacts yet"
+            description="Add the people you talk to during your search so you can link them to applications."
+          />
+        ) : (
+          <ul className="divide-y divide-slate-100 overflow-hidden rounded-xl border border-slate-200 bg-white">
+            {contacts.map((contact) => (
+              <li key={contact.id}>
+                <details className="group">
+                  <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 hover:bg-slate-50 [&::-webkit-details-marker]:hidden">
+                    <div className="flex min-w-0 items-center gap-3">
+                      <span
+                        aria-hidden="true"
+                        className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-accent-50 text-sm font-semibold text-accent-700"
+                      >
+                        {initials(contact.name)}
+                      </span>
+                      <div className="min-w-0">
+                        <p className="truncate font-medium text-slate-900">{contact.name}</p>
+                        <p className="truncate text-sm text-slate-500">
+                          {[contact.email, contact.phone].filter(Boolean).join(" · ") ||
+                            "No contact details"}
+                        </p>
+                      </div>
+                    </div>
+                    <span className="shrink-0 text-sm font-medium text-slate-500 group-open:hidden">
+                      Edit
+                    </span>
+                    <span className="hidden shrink-0 text-sm font-medium text-slate-500 group-open:inline">
+                      Close
+                    </span>
+                  </summary>
+                  <div className="border-t border-slate-100 bg-slate-50/60 px-4 py-4">
+                    {contact.linkedin_url ? (
+                      <a
+                        href={contact.linkedin_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className={`mb-3 inline-block text-sm ${buttonStyles.link}`}
+                      >
+                        LinkedIn profile ↗
+                      </a>
+                    ) : null}
+                    <ContactFields
+                      action={updateContact}
+                      contact={contact}
+                      submitLabel="Save changes"
+                      pendingLabel="Saving…"
+                    />
+                    <form action={deleteContact} className="mt-4 border-t border-slate-200 pt-3">
+                      <input type="hidden" name="id" value={contact.id} />
+                      <SubmitButton
+                        variant="dangerLink"
+                        pendingLabel="Deleting…"
+                        confirmMessage={`Delete ${contact.name}? They will be unlinked from every application.`}
+                      >
+                        Delete contact
+                      </SubmitButton>
+                    </form>
+                  </div>
+                </details>
+              </li>
+            ))}
+          </ul>
+        )}
       </section>
-    </main>
+    </PageShell>
   );
+}
+
+function initials(name: string): string {
+  return name
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase() ?? "")
+    .join("");
 }
 
 type ContactDefaults = {
@@ -86,20 +141,39 @@ function ContactFields({
   action,
   contact,
   submitLabel,
+  pendingLabel,
 }: {
   action: (formData: FormData) => Promise<void>;
   contact?: ContactDefaults;
   submitLabel: string;
+  pendingLabel: string;
 }) {
   return (
-    <form action={action} className="mt-4 grid gap-4 sm:grid-cols-2">
+    <form action={action} className="grid gap-4 sm:grid-cols-2">
       {contact ? <input type="hidden" name="id" value={contact.id} /> : null}
-      <label className="text-sm font-medium text-slate-700">Name *<input className={fieldClass} name="name" required defaultValue={contact?.name} /></label>
-      <label className="text-sm font-medium text-slate-700">Email<input className={fieldClass} name="email" type="email" defaultValue={contact?.email ?? ""} /></label>
-      <label className="text-sm font-medium text-slate-700">Phone<input className={fieldClass} name="phone" defaultValue={contact?.phone ?? ""} /></label>
-      <label className="text-sm font-medium text-slate-700">LinkedIn URL<input className={fieldClass} name="linkedin_url" type="url" defaultValue={contact?.linkedin_url ?? ""} /></label>
-      <label className="text-sm font-medium text-slate-700 sm:col-span-2">Notes<textarea className={fieldClass} name="notes" rows={3} defaultValue={contact?.notes ?? ""} /></label>
-      <button className="rounded-md bg-accent-600 px-4 py-2 text-sm font-medium text-white hover:bg-accent-700 sm:w-fit">{submitLabel}</button>
+      <label className={labelClass}>
+        Name <span className="text-red-600" aria-hidden="true">*</span>
+        <input className={fieldClass} name="name" required autoComplete="off" placeholder="Jane Doe" defaultValue={contact?.name} />
+      </label>
+      <label className={labelClass}>
+        Email
+        <input className={fieldClass} name="email" type="email" autoComplete="off" placeholder="jane@company.com" defaultValue={contact?.email ?? ""} />
+      </label>
+      <label className={labelClass}>
+        Phone
+        <input className={fieldClass} name="phone" type="tel" autoComplete="off" placeholder="+1 555 123 4567" defaultValue={contact?.phone ?? ""} />
+      </label>
+      <label className={labelClass}>
+        LinkedIn URL
+        <input className={fieldClass} name="linkedin_url" type="url" placeholder="https://linkedin.com/in/…" defaultValue={contact?.linkedin_url ?? ""} />
+      </label>
+      <label className={`${labelClass} sm:col-span-2`}>
+        Notes
+        <textarea className={fieldClass} name="notes" rows={3} placeholder="How you met, what you talked about…" defaultValue={contact?.notes ?? ""} />
+      </label>
+      <div className="sm:col-span-2">
+        <SubmitButton pendingLabel={pendingLabel}>{submitLabel}</SubmitButton>
+      </div>
     </form>
   );
 }
