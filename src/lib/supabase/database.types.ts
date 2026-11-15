@@ -306,6 +306,8 @@ export interface Database {
           summary: string;
           cover_letter: string;
           cv: Json;
+          strengths: string[];
+          gaps: string[];
           model: string;
           created_at: string;
           updated_at: string;
@@ -323,6 +325,8 @@ export interface Database {
           summary: string;
           cover_letter?: string;
           cv?: Json;
+          strengths?: string[];
+          gaps?: string[];
           model?: string;
           created_at?: string;
           updated_at?: string;

@@ -64,6 +64,8 @@ export const fitResultSchema = z.object({
   company: z.string().trim().max(200).default(""),
   score: z.coerce.number().int().min(1).max(10),
   summary: z.string().trim().min(1).max(1500),
+  strengths: z.array(z.string().trim().min(1).max(300)).max(8).default([]),
+  gaps: z.array(z.string().trim().min(1).max(300)).max(8).default([]),
   coverLetter: z.string().trim().min(1).max(5000),
   cv: tailoredCvSchema,
 });
@@ -72,7 +74,7 @@ export type FitResult = z.infer<typeof fitResultSchema>;
 
 const SYSTEM = `You are an experienced recruiter and career coach. Given a candidate profile and a job posting, you:
 1. Score how well the candidate fits the role from 1 (no fit) to 10 (excellent fit).
-2. Explain the score briefly.
+2. Explain the score: a short verdict plus the reasons for (strengths) and against (gaps).
 3. Write a short cover letter.
 4. Produce a CV tailored to the posting.
 
@@ -80,7 +82,9 @@ Language: detect the posting's language and write summary, coverLetter and every
 
 Scoring guide: weigh must-have requirements most (core skills, years and type of experience, seniority, required education/certifications, required languages, location/work mode when stated), then nice-to-haves. Missing a hard requirement caps the score at 5. Be calibrated and honest; do not inflate.
 
-summary: 2-4 sentences. Say the main strengths for this role and the most important gaps.
+summary: 1-2 sentences with the overall verdict (should the candidate apply, and why).
+strengths: 2-5 short bullet-style points (one sentence each) on why the candidate fits: requirements they meet, with concrete evidence from the profile.
+gaps: 0-5 short bullet-style points on why they may not fit: missing or weak requirements, most important first. Say if a gap is a hard requirement. Empty array only if there are truly no gaps.
 
 coverLetter: 150-230 words, plain text paragraphs separated by blank lines. Open with a greeting (use the hiring manager's name only if the posting gives it). Connect 2-3 concrete, real achievements from the profile to the role's needs. No contact details, no address blocks, no placeholders like [Name]. End with a short sign-off phrase such as "Best regards," on its own line, without a name; the app adds the name.
 
@@ -101,6 +105,8 @@ Reply with only one JSON object, no prose:
   "jobTitle": string, "company": string,
   "score": integer 1-10,
   "summary": string,
+  "strengths": string[],
+  "gaps": string[],
   "coverLetter": string,
   "cv": {
     "headline": string, "summary": string, "skills": string[],

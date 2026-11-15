@@ -124,6 +124,7 @@ Use the managed project you created at [supabase.com/dashboard](https://supabase
    - `004_profiles.sql` — candidate profile (one row per user)
    - `005_fit_analyses.sql` — AI job fit analyses
    - `006_drop_resumes.sql` — removes the old resume tables (delete the `resumes` bucket from the dashboard if unused)
+   - `007_fit_strengths_gaps.sql` — Fit (strengths) and Gap lists on each analysis
 
 4. Seed the global platforms.  
    `supabase/seed.sql` is not executed automatically on hosted projects. Open the Supabase Dashboard SQL Editor and run the contents of `supabase/seed.sql`, or insert the 10 preloaded Latin-American job boards manually.

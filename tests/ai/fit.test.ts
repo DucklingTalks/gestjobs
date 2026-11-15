@@ -21,6 +21,15 @@ describe("fitResultSchema", () => {
     expect(parsed.cv.experiences[0].current).toBe(false);
   });
 
+  it("defaults strengths and gaps to empty lists", () => {
+    const parsed = fitResultSchema.parse(base);
+    expect(parsed.strengths).toEqual([]);
+    expect(parsed.gaps).toEqual([]);
+    const withReasons = fitResultSchema.parse({ ...base, strengths: [" React "], gaps: ["No Go"] });
+    expect(withReasons.strengths).toEqual(["React"]);
+    expect(withReasons.gaps).toEqual(["No Go"]);
+  });
+
   it("rejects scores outside 1-10", () => {
     expect(fitResultSchema.safeParse({ ...base, score: 11 }).success).toBe(false);
     expect(fitResultSchema.safeParse({ ...base, score: 0 }).success).toBe(false);

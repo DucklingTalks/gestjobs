@@ -203,7 +203,8 @@ Full per-scenario checklist (every spec scenario mapped to a static check or run
 │   └── middleware.ts         Supabase session refresh
 ├── supabase/
 │   ├── migrations/           001 schema, 002 buckets, 003 reminder trigger,
-│                             004 profiles, 005 fit analyses, 006 drop resumes
+│                             004 profiles, 005 fit analyses, 006 drop resumes,
+                             007 fit strengths/gaps
 │   └── seed.sql              10 global platforms (LinkedIn, Indeed, etc.)
 ├── tests/                    Vitest unit tests (PR 6)
 │   ├── platforms/infer.test.ts

@@ -64,6 +64,8 @@ async function createAnalysis(
       language: fit.language,
       score: fit.score,
       summary: fit.summary,
+      strengths: fit.strengths,
+      gaps: fit.gaps,
       cover_letter: finalizeCoverLetter(fit.coverLetter, profile.fullName),
       cv: fit.cv,
       model: aiModel(),

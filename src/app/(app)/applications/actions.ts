@@ -491,6 +491,20 @@ export async function createApplication(
     }
   }
 
+  // Created from an AI fit analysis: link the analysis to the new
+  // application (only if it is not linked to another one yet).
+  const fitAnalysisId = String(formData.get("fitAnalysisId") ?? "");
+  if (z.string().uuid().safeParse(fitAnalysisId).success) {
+    await supabase
+      .from("fit_analyses")
+      .update({ application_id: created.id })
+      .eq("id", fitAnalysisId)
+      .eq("user_id", user.id)
+      .is("application_id", null);
+    revalidatePath(`/fit/${fitAnalysisId}`);
+    revalidatePath("/fit");
+  }
+
   revalidatePath("/applications");
   redirect(`/applications/${created.id}?status=created`);
 }

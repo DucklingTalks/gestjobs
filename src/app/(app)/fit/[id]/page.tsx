@@ -30,7 +30,7 @@ export default async function FitAnalysisPage({ params }: { params: Promise<{ id
     supabase
       .from("fit_analyses")
       .select(
-        "id, application_id, job_title, company, job_source_url, job_text, language, score, summary, cover_letter, cv, model, created_at",
+        "id, application_id, job_title, company, job_source_url, job_text, language, score, summary, strengths, gaps, cover_letter, cv, model, created_at",
       )
       .eq("id", id)
       .eq("user_id", user.id)
@@ -60,11 +60,20 @@ export default async function FitAnalysisPage({ params }: { params: Promise<{ id
         title={analysis.job_title || "Fit analysis"}
         description={[analysis.company, `Analysed ${formatDateTime(analysis.created_at)}`].filter(Boolean).join(" · ")}
         actions={
-          analysis.application_id ? (
-            <Link href={`/applications/${analysis.application_id}`} className={buttonStyles.secondary}>
-              View application
+          <>
+            <Link href="/fit" className={buttonStyles.secondary}>
+              <span aria-hidden="true">+</span> New analysis
             </Link>
-          ) : null
+            {analysis.application_id ? (
+              <Link href={`/applications/${analysis.application_id}`} className={buttonStyles.primary}>
+                View application
+              </Link>
+            ) : (
+              <Link href={`/applications/new?fromFit=${analysis.id}`} className={buttonStyles.primary}>
+                Add as application
+              </Link>
+            )}
+          </>
         }
       />
 
@@ -72,11 +81,25 @@ export default async function FitAnalysisPage({ params }: { params: Promise<{ id
         <Card>
           <div className="flex flex-col gap-5 sm:flex-row sm:items-start">
             <FitScoreHero score={analysis.score} />
-            <div>
+            <div className="min-w-0 flex-1">
               <p className="text-sm font-semibold text-slate-900">{fitLabel(analysis.score)}</p>
               <p className="mt-1 text-sm leading-relaxed text-slate-700">{analysis.summary}</p>
+              {!analysis.application_id && analysis.score >= 5 ? (
+                <p className="mt-3 text-sm">
+                  <Link href={`/applications/new?fromFit=${analysis.id}`} className={buttonStyles.link}>
+                    Worth applying? Add it to your applications →
+                  </Link>
+                </p>
+              ) : null}
             </div>
           </div>
+
+          {analysis.strengths.length || analysis.gaps.length ? (
+            <div className="mt-6 grid gap-4 sm:grid-cols-2">
+              <ReasonList tone="fit" title="Fit" subtitle="Why you match" items={analysis.strengths} />
+              <ReasonList tone="gap" title="Gap" subtitle="What may hold you back" items={analysis.gaps} />
+            </div>
+          ) : null}
         </Card>
 
         <div className="grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
@@ -134,5 +157,45 @@ export default async function FitAnalysisPage({ params }: { params: Promise<{ id
         </div>
       </div>
     </PageShell>
+  );
+}
+
+const reasonTones = {
+  fit: { box: "bg-emerald-50/60 ring-emerald-600/15", title: "text-emerald-800", icon: "text-emerald-600", mark: "✓" },
+  gap: { box: "bg-amber-50/60 ring-amber-600/15", title: "text-amber-800", icon: "text-amber-600", mark: "!" },
+} as const;
+
+function ReasonList({
+  tone,
+  title,
+  subtitle,
+  items,
+}: {
+  tone: keyof typeof reasonTones;
+  title: string;
+  subtitle: string;
+  items: string[];
+}) {
+  const t = reasonTones[tone];
+  return (
+    <section className={`rounded-xl p-4 ring-1 ring-inset ${t.box}`} aria-label={`${title}: ${subtitle}`}>
+      <h2 className={`text-sm font-semibold ${t.title}`}>
+        {title} <span className="font-normal text-slate-500">· {subtitle}</span>
+      </h2>
+      {items.length ? (
+        <ul className="mt-2 space-y-2">
+          {items.map((item, index) => (
+            <li key={index} className="flex gap-2 text-sm leading-relaxed text-slate-700">
+              <span aria-hidden="true" className={`mt-px w-3 shrink-0 text-center font-bold ${t.icon}`}>
+                {t.mark}
+              </span>
+              <span>{item}</span>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="mt-2 text-sm text-slate-500">Nothing significant.</p>
+      )}
+    </section>
   );
 }
