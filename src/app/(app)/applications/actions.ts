@@ -37,6 +37,7 @@ import { z } from "zod";
 
 import { createClient } from "@/lib/supabase/server";
 import { inferPlatformFromUrl, normalizeHostname, type Platform } from "@/lib/platforms/infer";
+import { REMINDER_OFFSET_DAYS } from "@/lib/reminders/schedule";
 import {
   applicationContactAttachSchema,
   applicationContactDetachSchema,
@@ -839,3 +840,36 @@ export async function detachContact(formData: FormData) {
 // `@/lib/validation/application` and are imported directly by the form
 // components. Calling code that needs the response shapes imports the
 // types from this file via `import type` (erased at build time).
+
+/**
+ * The follow-up message was sent: push the next reminder 15 days out, so the
+ * dashboard and the reminder emails wait for the recruiter's answer. A status
+ * change reschedules it again through the history trigger.
+ */
+export async function markFollowUpSent(formData: FormData) {
+  const applicationId = String(formData.get("applicationId") ?? "");
+  if (!applicationIdSchema.safeParse(applicationId).success) {
+    redirect("/applications");
+  }
+
+  const { supabase, user, error: authError } = await requireUser();
+  if (!supabase || !user) {
+    redirectWithError(`/applications/${applicationId}`, authError ?? "You must be signed in.");
+  }
+
+  const next = new Date(Date.now() + REMINDER_OFFSET_DAYS * 24 * 60 * 60 * 1000);
+  const { error } = await supabase
+    .from("applications")
+    .update({ next_reminder_at: next.toISOString(), updated_at: new Date().toISOString() })
+    .eq("id", applicationId)
+    .eq("user_id", user.id)
+    .not("next_reminder_at", "is", null);
+
+  if (error) {
+    redirectWithError(`/applications/${applicationId}`, "Unable to update the reminder.");
+  }
+
+  revalidatePath(`/applications/${applicationId}`);
+  revalidatePath("/dashboard");
+  redirect(`/applications/${applicationId}?status=follow-up-sent`);
+}

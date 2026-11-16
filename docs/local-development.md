@@ -257,6 +257,7 @@ Complete these once after provisioning Supabase + Resend. They map directly to t
    ```
 
 4. Visit `/dashboard` → the overdue application appears in the pending list.
+5. Open that application → a **Time to follow up** card shows a message ready to send. Switch English/Español, copy it or open it in your email. **Mark as sent** moves the next reminder 15 days out and hides the card.
 
 ### Dashboard
 

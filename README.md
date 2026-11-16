@@ -96,7 +96,7 @@ The reminder endpoint is **POST-only**, while Vercel native cron sends **GET** r
 | Job tracking | Applications CRUD, statuses, immutable history, platform URLs, and proposal capture |
 | Platforms and contacts | Seeded platform catalog, hostname inference, custom platforms and contacts |
 | Profile and AI job fit | Structured profile (with AI import from a PDF/DOCX CV), 1-10 fit score with summary, editable cover letter and an ATS-friendly tailored CV PDF, in the posting's language. For a fit of 4 or lower the cover letter and CV are only written on request, to save AI usage |
-| Reminders and dashboard | Scheduled reminders, idempotent Resend delivery, protected cron endpoint, counters, and pending list |
+| Reminders and dashboard | Scheduled reminders, idempotent Resend delivery, protected cron endpoint, counters, and pending list. A due application shows a ready-to-send follow-up message (English or Spanish) addressed to its recruiter contact |
 | Developer workflow | Vitest tests, ESLint, CI, smoke-test checklist, and production build |
 
 ---
