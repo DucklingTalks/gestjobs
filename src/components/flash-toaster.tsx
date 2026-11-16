@@ -25,8 +25,6 @@ const APPLICATION_MESSAGES: Record<string, string> = {
   deleted: "Application deleted.",
   changed: "Status updated.",
   unchanged: "Status was already up to date.",
-  "resume-attached": "Resume attached.",
-  "resume-detached": "Resume detached.",
   "contact-attached": "Contact linked.",
   "contact-detached": "Contact removed.",
 };
@@ -37,16 +35,25 @@ const CONTACT_MESSAGES: Record<string, string> = {
   deleted: "Contact deleted.",
 };
 
-const RESUME_MESSAGES: Record<string, string> = {
-  uploaded: "Resume version uploaded.",
+const PROFILE_MESSAGES: Record<string, string> = {
+  "profile-saved": "Profile saved.",
 };
 
+const FIT_MESSAGES: Record<string, string> = {
+  analysed: "Analysis ready.",
+  "letter-saved": "Cover letter saved.",
+  "analysis-deleted": "Analysis deleted.",
+};
+
+const MESSAGES_BY_PATH: Array<[prefix: string, table: Record<string, string>]> = [
+  ["/contacts", CONTACT_MESSAGES],
+  ["/profile", PROFILE_MESSAGES],
+  ["/fit", FIT_MESSAGES],
+];
+
 function statusMessage(pathname: string, status: string): string {
-  const table = pathname.startsWith("/contacts")
-    ? CONTACT_MESSAGES
-    : pathname.startsWith("/resumes")
-      ? RESUME_MESSAGES
-      : APPLICATION_MESSAGES;
+  const table =
+    MESSAGES_BY_PATH.find(([prefix]) => pathname.startsWith(prefix))?.[1] ?? APPLICATION_MESSAGES;
   return table[status] ?? "Done.";
 }
 

@@ -7,7 +7,7 @@
 // Until then, the typed Supabase clients in client.ts and server.ts pick up
 // per-table shapes incrementally. Application code that depends on table
 // shapes adds its table here when it lands (PR 2 added `platforms`, PR 3
-// added `contacts` and `resumes`, PR 4 added the application tables,
+// added `contacts`, PR 4 added the application tables,
 // PR 5 adds `reminder_dispatches`).
 // PR 6 will replace this file with the output of `supabase gen types`.
 
@@ -80,36 +80,6 @@ export interface Database {
         Relationships: [
           {
             foreignKeyName: "contacts_user_id_fkey";
-            columns: ["user_id"];
-            isOneToOne: false;
-            referencedRelation: "users";
-            referencedColumns: ["id"];
-          },
-        ];
-      };
-      resumes: {
-        Row: {
-          id: string;
-          user_id: string;
-          label: string;
-          file_path: string;
-          file_hash: string;
-          file_size: number;
-          created_at: string;
-        };
-        Insert: {
-          id?: string;
-          user_id: string;
-          label: string;
-          file_path: string;
-          file_hash: string;
-          file_size: number;
-          created_at?: string;
-        };
-        Update: Partial<Database["public"]["Tables"]["resumes"]["Insert"]>;
-        Relationships: [
-          {
-            foreignKeyName: "resumes_user_id_fkey";
             columns: ["user_id"];
             isOneToOne: false;
             referencedRelation: "users";
@@ -284,33 +254,90 @@ export interface Database {
           },
         ];
       };
-      application_resumes: {
+      profiles: {
         Row: {
-          application_id: string;
-          resume_id: string;
-          attached_at: string;
+          user_id: string;
+          full_name: string;
+          headline: string;
+          email: string;
+          phone: string;
+          location: string;
+          bio: string;
+          skills: string[];
+          links: Json;
+          languages: Json;
+          experiences: Json;
+          education: Json;
+          certifications: Json;
+          created_at: string;
+          updated_at: string;
         };
         Insert: {
-          application_id: string;
-          resume_id: string;
-          attached_at?: string;
+          user_id: string;
+          full_name?: string;
+          headline?: string;
+          email?: string;
+          phone?: string;
+          location?: string;
+          bio?: string;
+          skills?: string[];
+          links?: Json;
+          languages?: Json;
+          experiences?: Json;
+          education?: Json;
+          certifications?: Json;
+          created_at?: string;
+          updated_at?: string;
         };
-        Update: Partial<
-          Database["public"]["Tables"]["application_resumes"]["Insert"]
-        >;
+        Update: Partial<Database["public"]["Tables"]["profiles"]["Insert"]>;
+        Relationships: [];
+      };
+      fit_analyses: {
+        Row: {
+          id: string;
+          user_id: string;
+          application_id: string | null;
+          job_title: string;
+          company: string;
+          job_source_url: string | null;
+          job_text: string;
+          language: string;
+          score: number;
+          summary: string;
+          cover_letter: string;
+          cv: Json;
+          strengths: string[];
+          gaps: string[];
+          model: string;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          application_id?: string | null;
+          job_title?: string;
+          company?: string;
+          job_source_url?: string | null;
+          job_text: string;
+          language?: string;
+          score: number;
+          summary: string;
+          cover_letter?: string;
+          cv?: Json;
+          strengths?: string[];
+          gaps?: string[];
+          model?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["fit_analyses"]["Insert"]>;
         Relationships: [
           {
-            foreignKeyName: "application_resumes_application_id_fkey";
+            foreignKeyName: "fit_analyses_application_id_fkey";
             columns: ["application_id"];
-            isOneToOne: true;
-            referencedRelation: "applications";
-            referencedColumns: ["id"];
-          },
-          {
-            foreignKeyName: "application_resumes_resume_id_fkey";
-            columns: ["resume_id"];
             isOneToOne: false;
-            referencedRelation: "resumes";
+            referencedRelation: "applications";
             referencedColumns: ["id"];
           },
         ];

@@ -10,7 +10,8 @@ const navLinks = [
   { href: "/dashboard", label: "Dashboard" },
   { href: "/applications", label: "Applications" },
   { href: "/contacts", label: "Contacts" },
-  { href: "/resumes", label: "Resumes" },
+  { href: "/profile", label: "Profile" },
+  { href: "/fit", label: "Job fit" },
 ];
 
 function Logo() {

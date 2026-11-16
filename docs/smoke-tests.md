@@ -55,10 +55,9 @@ Phase 6 (PR 6 — Verification + Tooling) deliverable. Every spec scenario from 
 | Invalid proposal URL rejected | `specs/applications/spec.md` | `tests/validation/schemas.test.ts` — applicationJobProposalUrlSchema > rejects malformed URLs | ✅ |
 | Oversized proposal file rejected | `specs/applications/spec.md` | `tests/validation/schemas.test.ts` — validateProposalFile > rejects an oversized file | ✅ |
 | Unsupported proposal MIME rejected | `specs/applications/spec.md` | `tests/validation/schemas.test.ts` — validateProposalFile > rejects an unsupported MIME type | ✅ |
-| Attach resume replaces previous attachment | `specs/applications/spec.md` | 🔁 Manual: attach resume A, attach resume B, only B is shown in detail | 🔁 |
 | Attach contact with role | `specs/applications/spec.md` | `tests/validation/schemas.test.ts` — applicationContactAttachSchema > accepts payload with role text | ✅ |
 | Remove contact linkage (contact retained) | `specs/applications/spec.md` | 🔁 Manual: link Jane → remove role → Jane still appears in /contacts | 🔁 |
-| Delete application cascades history + attachments | `specs/applications/spec.md` | 🔁 Manual: delete an application, check `application_status_history` and `application_resumes` rows are gone | 🔁 |
+| Delete application cascades history + attachments | `specs/applications/spec.md` | 🔁 Manual: delete an application, check `application_status_history` rows are gone | 🔁 |
 
 ---
 
@@ -79,20 +78,19 @@ Phase 6 (PR 6 — Verification + Tooling) deliverable. Every spec scenario from 
 
 ---
 
-## Resumes
+## Profile and job fit
 
-| Scenario | Source | Check | Status |
-|----------|--------|-------|--------|
-| Upload new resume (PDF) | `specs/resumes/spec.md` | `tests/validation/schemas.test.ts` — resumeLabelSchema + validateResumeFile | ✅ |
-| Upload new resume (DOCX) | `specs/resumes/spec.md` | `tests/validation/schemas.test.ts` — validateResumeFile > accepts a DOCX resume under the size limit | ✅ |
-| Invalid file type rejected | `specs/resumes/spec.md` | `tests/validation/schemas.test.ts` — validateResumeFile > rejects an executable masquerading as a PDF | ✅ |
-| Oversized file rejected | `specs/resumes/spec.md` | `tests/validation/schemas.test.ts` — validateResumeFile > rejects an oversized resume | ✅ |
-| Stored under resumes/{user_id}/... | `specs/resumes/spec.md` | 🟡 **Requires Supabase Storage**: after upload, `select storage.objects.name from storage.objects where bucket_id = 'resumes';` shows the object under `resumes/<user-id>/`. | 🔁 |
-| Signed URL 200 | `specs/resumes/spec.md` | 🔁 Manual: open the signed URL in a browser, file downloads | 🔁 |
-| Cross-user RLS denial for storage | `specs/resumes/spec.md` | 🟡 **Requires Supabase Storage SQL**: sign in as B, attempt `select name from storage.objects where bucket_id = 'resumes';` → 0 rows from A. | 🔁 |
-| Attach resume to application | `specs/resumes/spec.md` | 🔁 Manual: attach a resume, detail page shows it | 🔁 |
-| Change attached resume | `specs/resumes/spec.md` | 🔁 Manual: attach A, attach B, only B is shown | 🔁 |
-| Detach resume | `specs/resumes/spec.md` | 🔁 Manual: detach, detail page shows "No resume attached" | 🔁 |
+| Scenario | Check | Status |
+|----------|-------|--------|
+| Profile schema defaults, blank-row cleanup, date format | `tests/ai/redact.test.ts` — profile schema | ✅ |
+| Contact details redacted before CV import | `tests/ai/redact.test.ts` — redactContacts | ✅ |
+| Profile sent to the AI excludes name, email, phone, links | `tests/ai/fit.test.ts` — profileForAi | ✅ |
+| Fit result validation (score 1-10, language code) | `tests/ai/fit.test.ts` — fitResultSchema | ✅ |
+| Job posting read from schema.org JSON-LD | `tests/ai/fit.test.ts` — job posting parsing | ✅ |
+| CV PDF text is extractable, accented and in reading order | `tests/cv/pdf.test.ts` | ✅ |
+| CV import fills the form for review | 🔁 Manual with `OPENCODE_API_KEY`: import a PDF/DOCX on `/profile` | 🔁 |
+| Analysis end to end (score, letter, CV PDF) | 🔁 Manual with `OPENCODE_API_KEY`: `/fit` and "Analyse fit" on an application | 🔁 |
+| Cross-user RLS on profiles and fit_analyses | 🟡 **Requires Supabase**: as user B, `select * from fit_analyses` returns no rows from A | 🔁 |
 
 ---
 

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
+import { FitScoreBadge } from "@/components/fit-score";
 import { SubmitButton } from "@/components/form-buttons";
 import {
   Alert,
@@ -10,6 +11,7 @@ import {
   fieldClass,
   formatDate,
   formatDateTime,
+  formatRelative,
   hostnameOf,
   labelClass,
   PageHeader,
@@ -21,12 +23,11 @@ import { applicationIdSchema } from "@/lib/validation/application";
 
 import {
   attachContact,
-  attachResume,
   changeApplicationStatus,
   deleteApplication,
   detachContact,
-  detachResume,
 } from "../actions";
+import { analyzeApplication } from "../../fit/actions";
 
 export const metadata: Metadata = { title: "Application detail" };
 
@@ -60,26 +61,10 @@ type HistoryRow = {
   to_status: { id: string; name: string } | null;
 };
 
-type ResumeOption = {
-  id: string;
-  label: string;
-  created_at: string;
-};
-
 type ContactOption = {
   id: string;
   name: string;
   email: string | null;
-};
-
-type ResumeAttachment = {
-  resume_id: string;
-  attached_at: string;
-  resume: {
-    id: string;
-    label: string;
-    file_path: string;
-  } | null;
 };
 
 type ContactLink = {
@@ -137,9 +122,7 @@ export default async function ApplicationDetailPage({
   const [
     { data: history },
     { data: statuses },
-    { data: resumes },
     { data: contacts },
-    { data: applicationResume },
     { data: applicationContacts },
   ] = await Promise.all([
     supabase
@@ -155,20 +138,10 @@ export default async function ApplicationDetailPage({
       .eq("user_id", user.id)
       .order("sort_order", { ascending: true }),
     supabase
-      .from("resumes")
-      .select("id, label, created_at")
-      .eq("user_id", user.id)
-      .order("created_at", { ascending: false }),
-    supabase
       .from("contacts")
       .select("id, name, email")
       .eq("user_id", user.id)
       .order("name"),
-    supabase
-      .from("application_resumes")
-      .select("resume_id, attached_at, resume:resumes(id, label, file_path)")
-      .eq("application_id", id)
-      .maybeSingle(),
     supabase
       .from("application_contacts")
       .select("contact_id, role, contact:contacts(id, name, email)")
@@ -186,27 +159,11 @@ export default async function ApplicationDetailPage({
       : row.to_status,
   }));
 
-  const resumeOptions: ResumeOption[] = (resumes ?? []).map((row) => ({
-    id: row.id,
-    label: row.label,
-    created_at: row.created_at,
-  }));
-
   const contactOptions: ContactOption[] = (contacts ?? []).map((row) => ({
     id: row.id,
     name: row.name,
     email: row.email,
   }));
-
-  const attachment: ResumeAttachment | null = applicationResume
-    ? {
-        resume_id: applicationResume.resume_id,
-        attached_at: applicationResume.attached_at,
-        resume: Array.isArray(applicationResume.resume)
-          ? applicationResume.resume[0] ?? null
-          : applicationResume.resume,
-      }
-    : null;
 
   const contactLinks: ContactLink[] = (applicationContacts ?? []).map(
     (row) => ({
@@ -226,13 +183,14 @@ export default async function ApplicationDetailPage({
     proposalSignedUrl = data?.signedUrl ?? null;
   }
 
-  let resumeSignedUrl: string | null = null;
-  if (attachment?.resume?.file_path) {
-    const { data } = await supabase.storage
-      .from("resumes")
-      .createSignedUrl(attachment.resume.file_path, 3_600);
-    resumeSignedUrl = data?.signedUrl ?? null;
-  }
+  const { data: latestFit } = await supabase
+    .from("fit_analyses")
+    .select("id, score, summary, created_at")
+    .eq("application_id", id)
+    .eq("user_id", user.id)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
 
   const hasProposal = Boolean(
     detail.job_proposal_text || detail.job_proposal_url || detail.job_proposal_file_path,
@@ -381,60 +339,33 @@ export default async function ApplicationDetailPage({
             </dl>
           </Card>
 
-          <Card title="Resume">
-            {attachment && attachment.resume ? (
-              <div className="mb-4 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
-                <p className="text-sm font-medium text-slate-900">{attachment.resume.label}</p>
-                <p className="text-xs text-slate-500">
-                  Attached {formatDate(attachment.attached_at)}
-                </p>
-                <div className="mt-2 flex flex-wrap items-center gap-3">
-                  {resumeSignedUrl ? (
-                    <a href={resumeSignedUrl} className={`text-sm ${buttonStyles.link}`}>
-                      Download
-                    </a>
-                  ) : (
-                    <span className="text-xs text-red-700">Download unavailable</span>
-                  )}
-                  <form action={detachResume}>
-                    <input type="hidden" name="applicationId" value={detail.id} />
-                    <SubmitButton variant="dangerLink" pendingLabel="Removing…">
-                      Detach
-                    </SubmitButton>
-                  </form>
+          <Card title="Job fit">
+            {latestFit ? (
+              <div className="mb-4 space-y-2">
+                <div className="flex items-center gap-2">
+                  <FitScoreBadge score={latestFit.score} />
+                  <span className="text-xs text-slate-500">{formatRelative(latestFit.created_at)}</span>
                 </div>
+                <p className="line-clamp-4 text-sm text-slate-700">{latestFit.summary}</p>
+                <Link href={`/fit/${latestFit.id}`} className={`text-sm ${buttonStyles.link}`}>
+                  Cover letter &amp; tailored CV →
+                </Link>
               </div>
             ) : (
-              <p className="mb-4 text-sm text-slate-500">No resume attached.</p>
-            )}
-            {resumeOptions.length ? (
-              <form action={attachResume} className="space-y-2">
-                <input type="hidden" name="applicationId" value={detail.id} />
-                <label className={labelClass}>
-                  {attachment ? "Replace with" : "Attach a version"}
-                  <select name="resumeId" required defaultValue="" className={fieldClass}>
-                    <option value="" disabled>
-                      Select a resume
-                    </option>
-                    {resumeOptions.map((resume) => (
-                      <option key={resume.id} value={resume.id}>
-                        {resume.label}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <SubmitButton variant="secondary" pendingLabel="Attaching…" className="w-full">
-                  Attach resume
-                </SubmitButton>
-              </form>
-            ) : (
-              <p className="text-sm text-slate-500">
-                <Link href="/resumes" className={buttonStyles.link}>
-                  Upload a resume
-                </Link>{" "}
-                to attach it here.
+              <p className="mb-4 text-sm text-slate-500">
+                Score how well your profile matches this role and get a cover letter and a tailored CV.
               </p>
             )}
+            <form action={analyzeApplication}>
+              <input type="hidden" name="applicationId" value={detail.id} />
+              <SubmitButton
+                variant="secondary"
+                pendingLabel="Analysing…"
+                className="w-full"
+              >
+                {latestFit ? "Analyse again" : "Analyse fit"}
+              </SubmitButton>
+            </form>
           </Card>
 
           <Card title="Contacts">
@@ -532,7 +463,7 @@ export default async function ApplicationDetailPage({
         <div>
           <h2 className="text-sm font-semibold text-red-800">Delete application</h2>
           <p className="mt-0.5 text-sm text-red-700">
-            Removes its status history, linked resume and contacts, and the saved
+            Removes its status history, linked contacts, and the saved
             proposal file. This cannot be undone.
           </p>
         </div>

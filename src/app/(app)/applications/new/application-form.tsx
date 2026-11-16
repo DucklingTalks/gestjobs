@@ -78,6 +78,17 @@ type ApplicationFormProps = {
   defaultDate: string;
   /** When provided, the form edits this application instead of creating one. */
   initial?: ApplicationFormInitial;
+  /** Create mode only: values carried over from an AI fit analysis. */
+  prefill?: ApplicationFormPrefill;
+};
+
+export type ApplicationFormPrefill = {
+  fitAnalysisId: string;
+  companyName: string;
+  positionTitle: string;
+  platformUrl: string;
+  jobProposalText: string;
+  jobProposalUrl: string;
 };
 
 const initialState: ApplicationFormState = { error: null };
@@ -88,8 +99,10 @@ export function ApplicationForm({
   statuses,
   defaultDate,
   initial,
+  prefill,
 }: ApplicationFormProps) {
   const isEdit = Boolean(initial);
+  const defaults = initial ?? prefill;
   const reactId = useId();
   const platformUrlId = `platform-url-${reactId}`;
   const platformNameId = `platform-name-${reactId}`;
@@ -118,12 +131,20 @@ export function ApplicationForm({
     [options, customPlatforms],
   );
 
-  const [platformUrl, setPlatformUrl] = useState(initial?.platformUrl ?? "");
+  const [platformUrl, setPlatformUrl] = useState(defaults?.platformUrl ?? "");
+  // A prefilled URL (from a fit analysis) is inferred once, like a typed one.
+  const [prefillMatch] = useState<Platform | null>(() =>
+    !initial && prefill?.platformUrl
+      ? inferPlatformFromUrl(prefill.platformUrl, [...options, ...customPlatforms])
+      : null,
+  );
   const [selectedPlatform, setSelectedPlatform] = useState<Platform | null>(
-    initial?.platform ?? null,
+    initial?.platform ?? prefillMatch,
   );
   const [urlError, setUrlError] = useState<string | null>(null);
-  const [showNameField, setShowNameField] = useState(false);
+  const [showNameField, setShowNameField] = useState(
+    Boolean(!initial && prefill?.platformUrl && !prefillMatch),
+  );
 
   const inferred = useMemo(() => {
     if (!platformUrl.trim()) return null;
@@ -179,11 +200,18 @@ export function ApplicationForm({
     "";
 
   const platformLocked = Boolean(selectedPlatform?.id && !selectedPlatform.isCustom);
-  const cancelHref = initial ? `/applications/${initial.id}` : "/applications";
+  const cancelHref = initial
+    ? `/applications/${initial.id}`
+    : prefill
+      ? `/fit/${prefill.fitAnalysisId}`
+      : "/applications";
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
       {initial ? <input type="hidden" name="applicationId" value={initial.id} /> : null}
+      {!initial && prefill ? (
+        <input type="hidden" name="fitAnalysisId" value={prefill.fitAnalysisId} />
+      ) : null}
 
       {state.error ? (
         <div ref={errorRef}>
@@ -203,7 +231,7 @@ export function ApplicationForm({
               autoFocus={!isEdit}
               autoComplete="organization-title"
               placeholder="Senior Frontend Engineer"
-              defaultValue={initial?.positionTitle}
+              defaultValue={defaults?.positionTitle}
               className={fieldClass}
             />
           </label>
@@ -216,7 +244,7 @@ export function ApplicationForm({
               maxLength={120}
               autoComplete="organization"
               placeholder="Acme Inc."
-              defaultValue={initial?.companyName}
+              defaultValue={defaults?.companyName}
               className={fieldClass}
             />
           </label>
@@ -361,7 +389,7 @@ export function ApplicationForm({
               rows={5}
               maxLength={20000}
               placeholder="Paste the job description here."
-              defaultValue={initial?.jobProposalText}
+              defaultValue={defaults?.jobProposalText}
               className={fieldClass}
             />
           </label>
@@ -374,7 +402,7 @@ export function ApplicationForm({
                 type="url"
                 maxLength={2048}
                 placeholder="https://example.com/job-posting"
-                defaultValue={initial?.jobProposalUrl}
+                defaultValue={defaults?.jobProposalUrl}
                 className={fieldClass}
               />
             </label>

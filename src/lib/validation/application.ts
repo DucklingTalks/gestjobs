@@ -1,6 +1,5 @@
 import { z } from "zod";
 
-import { MAX_RESUME_FILE_SIZE_BYTES } from "@/lib/validation/resume";
 
 /**
  * Zod schemas for the application form and server actions.
@@ -22,14 +21,12 @@ import { MAX_RESUME_FILE_SIZE_BYTES } from "@/lib/validation/resume";
  *   - `applicationInputSchema` — the full payload accepted by create/update.
  *   - `applicationStatusChangeSchema` — the minimal payload for status flips.
  *   - `applicationContactAttachSchema` — the payload for linking contacts.
- *   - `applicationResumeAttachSchema` — the payload for resume attachment.
  *
- * File size budget (const, not a zod primitive): the proposal file limit
- * reuses the resume limit so we have one source of truth for "what can be
- * uploaded".
+ * File size budget (const, not a zod primitive): proposal files are
+ * capped at 10 MB, matching the storage bucket limit.
  */
 
-export const MAX_PROPOSAL_FILE_SIZE_BYTES = MAX_RESUME_FILE_SIZE_BYTES;
+export const MAX_PROPOSAL_FILE_SIZE_BYTES = 10 * 1024 * 1024;
 export const MAX_PROPOSAL_FILE_SIZE_MB = 10;
 
 export const PROPOSAL_MIME_TYPES = [
@@ -113,10 +110,6 @@ export const applicationContactIdSchema = z
   .string()
   .uuid("Invalid contact id.");
 
-export const applicationResumeIdSchema = z
-  .string()
-  .uuid("Invalid resume id.");
-
 export const applicationRoleSchema = z
   .string()
   .trim()
@@ -191,14 +184,6 @@ export type ApplicationContactDetachInput = z.infer<
   typeof applicationContactDetachSchema
 >;
 
-export const applicationResumeAttachSchema = z.object({
-  applicationId: applicationIdSchema,
-  resumeId: applicationResumeIdSchema,
-});
-
-export type ApplicationResumeAttachInput = z.infer<
-  typeof applicationResumeAttachSchema
->;
 
 export type ProposalFileValidation =
   | { success: true; file: File }

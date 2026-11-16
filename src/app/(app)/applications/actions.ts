@@ -43,7 +43,6 @@ import {
   applicationIdSchema,
   applicationInputSchema,
   applicationPlatformUrlSchema,
-  applicationResumeAttachSchema,
   applicationStatusChangeSchema,
   applicationUpdateSchema,
   type ApplicationInput,
@@ -492,6 +491,20 @@ export async function createApplication(
     }
   }
 
+  // Created from an AI fit analysis: link the analysis to the new
+  // application (only if it is not linked to another one yet).
+  const fitAnalysisId = String(formData.get("fitAnalysisId") ?? "");
+  if (z.string().uuid().safeParse(fitAnalysisId).success) {
+    await supabase
+      .from("fit_analyses")
+      .update({ application_id: created.id })
+      .eq("id", fitAnalysisId)
+      .eq("user_id", user.id)
+      .is("application_id", null);
+    revalidatePath(`/fit/${fitAnalysisId}`);
+    revalidatePath("/fit");
+  }
+
   revalidatePath("/applications");
   redirect(`/applications/${created.id}?status=created`);
 }
@@ -713,101 +726,6 @@ export async function changeApplicationStatus(formData: FormData) {
   revalidatePath("/applications");
   revalidatePath(`/applications/${parsed.data.applicationId}`);
   redirect(`/applications/${parsed.data.applicationId}?status=changed`);
-}
-
-/**
- * Attach a resume version to an application.
- *
- * Spec scenario: "Attach resume to application" — joins on the
- * `application_resumes` table whose PK is `application_id`. A subsequent
- * attach replaces the previous row (spec scenario "Change attached resume").
- */
-export async function attachResume(formData: FormData) {
-  const parsed = applicationResumeAttachSchema.safeParse({
-    applicationId: String(formData.get("applicationId") ?? ""),
-    resumeId: String(formData.get("resumeId") ?? ""),
-  });
-
-  if (!parsed.success) {
-    const target = String(formData.get("applicationId") ?? "");
-    redirectWithError(`/applications/${target}`, firstZodIssue(parsed.error));
-  }
-
-  const { supabase, user, error: authError } = await requireUser();
-  if (!supabase || !user) {
-    redirectWithError(`/applications/${parsed.data.applicationId}`, authError ?? "You must be signed in.");
-  }
-
-  // Validate ownership of both rows.
-  const [{ data: app, error: appError }, { data: resume, error: resumeError }] =
-    await Promise.all([
-      supabase
-        .from("applications")
-        .select("id")
-        .eq("id", parsed.data.applicationId)
-        .eq("user_id", user.id)
-        .maybeSingle(),
-      supabase
-        .from("resumes")
-        .select("id")
-        .eq("id", parsed.data.resumeId)
-        .eq("user_id", user.id)
-        .maybeSingle(),
-    ]);
-
-  if (appError || resumeError || !app || !resume) {
-    redirectWithError(
-      `/applications/${parsed.data.applicationId}`,
-      "Selected resume is not available.",
-    );
-  }
-
-  const { error } = await supabase
-    .from("application_resumes")
-    .upsert(
-      {
-        application_id: parsed.data.applicationId,
-        resume_id: parsed.data.resumeId,
-      },
-      { onConflict: "application_id" },
-    );
-
-  if (error) {
-    redirectWithError(`/applications/${parsed.data.applicationId}`, "Unable to attach resume.");
-  }
-
-  revalidatePath(`/applications/${parsed.data.applicationId}`);
-  redirect(`/applications/${parsed.data.applicationId}?status=resume-attached`);
-}
-
-/**
- * Detach (remove) the resume attached to an application.
- *
- * Spec scenario: "Detach resume" — deletes the join row. The underlying
- * `resumes` version is NOT deleted.
- */
-export async function detachResume(formData: FormData) {
-  const applicationId = String(formData.get("applicationId") ?? "");
-  if (!applicationIdSchema.safeParse(applicationId).success) {
-    redirectWithError("/applications", "Invalid application id.");
-  }
-
-  const { supabase, user, error: authError } = await requireUser();
-  if (!supabase || !user) {
-    redirectWithError(`/applications/${applicationId}`, authError ?? "You must be signed in.");
-  }
-
-  const { error } = await supabase
-    .from("application_resumes")
-    .delete()
-    .eq("application_id", applicationId);
-
-  if (error) {
-    redirectWithError(`/applications/${applicationId}`, "Unable to detach resume.");
-  }
-
-  revalidatePath(`/applications/${applicationId}`);
-  redirect(`/applications/${applicationId}?status=resume-detached`);
 }
 
 /**
