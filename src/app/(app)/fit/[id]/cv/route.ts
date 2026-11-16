@@ -23,7 +23,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
   const [{ data: analysis }, { data: profileRow }] = await Promise.all([
     supabase
       .from("fit_analyses")
-      .select("id, job_title, language, cv, keywords")
+      .select("id, job_title, language, cv, keywords, cover_letter")
       .eq("id", id)
       .eq("user_id", user.id)
       .maybeSingle(),
@@ -34,6 +34,10 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
       .maybeSingle(),
   ]);
   if (!analysis) return new NextResponse("Not found", { status: 404 });
+  // Low fits have no CV until the candidate asks for one on the analysis page.
+  if (!analysis.cover_letter.trim()) {
+    return new NextResponse("Generate the CV from the analysis page first.", { status: 409 });
+  }
 
   const cv = tailoredCvSchema.safeParse(analysis.cv);
   if (!cv.success) return new NextResponse("This CV could not be generated.", { status: 422 });

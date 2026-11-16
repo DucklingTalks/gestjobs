@@ -12,7 +12,7 @@ import { profileEvidence } from "@/lib/ats/keywords";
 import { createClient } from "@/lib/supabase/server";
 import { profileFromRow } from "@/lib/validation/profile";
 
-import { deleteAnalysis } from "../actions";
+import { deleteAnalysis, generateFitDocuments } from "../actions";
 import { CoverLetterEditor } from "./cover-letter";
 import { CvPreview } from "./cv-preview";
 import { KeywordsCard } from "./keywords";
@@ -47,6 +47,8 @@ export default async function FitAnalysisPage({ params }: { params: Promise<{ id
   if (!analysis) notFound();
 
   const profile = profileFromRow(profileRow);
+  // Low fits skip the documents until the candidate asks for them.
+  const hasDocuments = analysis.cover_letter.trim() !== "";
   const keywords = parseStoredKeywords(analysis.keywords);
   const parsedCv = tailoredCvSchema.safeParse(analysis.cv);
   const cv = parsedCv.success ? { success: true as const, data: applyKeywords(parsedCv.data, keywords) } : parsedCv;
@@ -111,29 +113,44 @@ export default async function FitAnalysisPage({ params }: { params: Promise<{ id
           <KeywordsCard analysisId={analysis.id} keywords={keywords} profileTerms={[...new Set(profileEvidence(profile).terms)]} />
         ) : null}
 
-        <div className="grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
-          <Card title="Cover letter" description="Edit it freely; your changes are saved here.">
-            <CoverLetterEditor id={analysis.id} initial={analysis.cover_letter} />
-          </Card>
+        {hasDocuments ? (
+          <div className="grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
+            <Card title="Cover letter" description="Edit it freely; your changes are saved here.">
+              <CoverLetterEditor id={analysis.id} initial={analysis.cover_letter} />
+            </Card>
 
-          <Card
-            title="Tailored CV"
-            description="Built only from your profile, reordered and rephrased for this role."
-            actions={
-              cv.success ? (
-                <a href={`/fit/${analysis.id}/cv`} className={buttonStyles.primary} download>
-                  Download PDF
-                </a>
-              ) : null
-            }
-          >
-            {cv.success ? (
-              <CvPreview cv={cv.data} contact={contact} language={analysis.language} />
-            ) : (
-              <p className="text-sm text-slate-500">This CV could not be displayed. Run the analysis again.</p>
-            )}
+            <Card
+              title="Tailored CV"
+              description="Built only from your profile, reordered and rephrased for this role."
+              actions={
+                cv.success ? (
+                  <a href={`/fit/${analysis.id}/cv`} className={buttonStyles.primary} download>
+                    Download PDF
+                  </a>
+                ) : null
+              }
+            >
+              {cv.success ? (
+                <CvPreview cv={cv.data} contact={contact} language={analysis.language} />
+              ) : (
+                <p className="text-sm text-slate-500">This CV could not be displayed. Run the analysis again.</p>
+              )}
+            </Card>
+          </div>
+        ) : (
+          <Card title="Cover letter and tailored CV">
+            <p className="text-sm text-slate-700">
+              With a fit of {analysis.score}/10, the cover letter and CV were not written automatically.
+            </p>
+            <p className="mt-1 text-sm font-medium text-slate-900">
+              Do you want to generate the CV and cover letter anyway?
+            </p>
+            <form action={generateFitDocuments} className="mt-4">
+              <input type="hidden" name="id" value={analysis.id} />
+              <SubmitButton pendingLabel="Writing… this can take a minute">Generate CV and cover letter</SubmitButton>
+            </form>
           </Card>
-        </div>
+        )}
 
         <Card title="Job posting">
           <details>

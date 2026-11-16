@@ -6,7 +6,7 @@ import { z } from "zod";
 
 import { aiModel, isAiConfigured } from "@/lib/ai/client";
 import { extractDocumentText } from "@/lib/ai/documents";
-import { analyzeFit, finalizeCoverLetter } from "@/lib/ai/fit";
+import { analyzeFit, finalizeCoverLetter, writeFitDocuments, type FitDocuments } from "@/lib/ai/fit";
 import { parseStoredKeywords, toStoredKeywords } from "@/lib/ats/cv";
 import { findEvidence, matchKeywords, profileEvidence, type PersonalAlias } from "@/lib/ats/keywords";
 import { fetchJobPosting } from "@/lib/jobs/fetch-posting";
@@ -178,6 +178,57 @@ export async function analyzeApplication(formData: FormData) {
 
   revalidatePath(`/applications/${applicationId}`);
   redirect(`/fit/${(result as { id: string }).id}?status=analysed`);
+}
+
+/**
+ * Write the cover letter and CV for a low-fit analysis, when the candidate
+ * decides to apply anyway. This is the only extra AI call; good fits get
+ * their documents in the analysis call itself.
+ */
+export async function generateFitDocuments(formData: FormData) {
+  const id = String(formData.get("id") ?? "");
+  if (!idSchema.safeParse(id).success) redirect("/fit");
+  const back = (message: string): never => redirect(`/fit/${id}?error=${encodeURIComponent(message)}`);
+
+  if (!isAiConfigured()) back("AI is not configured. Add OPENCODE_API_KEY to the environment.");
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect("/login");
+
+  const [{ data: analysis }, { data: profileRow }] = await Promise.all([
+    supabase
+      .from("fit_analyses")
+      .select("id, job_text, language, score, summary, strengths, gaps, cover_letter")
+      .eq("id", id)
+      .eq("user_id", user.id)
+      .maybeSingle(),
+    supabase.from("profiles").select(PROFILE_COLUMNS).eq("user_id", user.id).maybeSingle(),
+  ]);
+  if (!analysis) redirect("/fit");
+  // Already written (e.g. a double submit): nothing to pay for.
+  if (analysis.cover_letter.trim()) redirect(`/fit/${id}`);
+
+  const profile = profileFromRow(profileRow);
+  const result = await writeFitDocuments(profile, analysis.job_text, analysis);
+  if (!result.ok) back(result.error);
+  const documents = (result as { ok: true; data: FitDocuments }).data;
+
+  const { error } = await supabase
+    .from("fit_analyses")
+    .update({
+      cover_letter: finalizeCoverLetter(documents.coverLetter, profile.fullName),
+      cv: documents.cv,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", id)
+    .eq("user_id", user.id);
+  if (error) back("The documents were written but could not be saved.");
+
+  revalidatePath(`/fit/${id}`);
+  redirect(`/fit/${id}?status=documents-ready`);
 }
 
 /** Save edits to the cover letter. */
