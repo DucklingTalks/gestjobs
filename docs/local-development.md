@@ -208,6 +208,7 @@ Complete these once after provisioning Supabase + Resend. They map directly to t
 4. Change status → confirm the timeline shows the new history row.
 5. Paste proposal text, upload a PDF/DOCX, or link a proposal URL → confirm each persists.
 6. Click **Analyse fit** in the *Job fit* card → you land on the analysis with score, cover letter and tailored CV (needs `OPENCODE_API_KEY` and a filled profile).
+   With a fit of 4 or lower there is no cover letter or CV yet: click **Generate CV and cover letter** to write them.
 7. Attach a contact with a role → confirm the contact appears. Remove the role → confirm the contact still exists in `/contacts`.
 8. Delete the application → confirm its `application_status_history` rows are gone; linked `fit_analyses` remain, unlinked.
 
