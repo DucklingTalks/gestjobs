@@ -138,3 +138,18 @@ export function followUpMailto(email: string | null, message: FollowUpMessage): 
   const params = `subject=${encodeURIComponent(message.subject)}&body=${encodeURIComponent(message.body)}`;
   return `mailto:${address}?${params}`;
 }
+
+/**
+ * Gmail compose URL with recipient, subject and body filled in. Works
+ * without an address too (the "To" field is left empty). Opened with a
+ * fixed window name, the browser reuses the compose tab it opened before
+ * when it can; it cannot reach a Gmail tab the user opened by hand.
+ */
+export function followUpGmailUrl(email: string | null, message: FollowUpMessage): string {
+  const params = new URLSearchParams({ view: "cm", fs: "1" });
+  const address = email?.trim();
+  if (address && !/[\s?&]/.test(address)) params.set("to", address);
+  params.set("su", message.subject);
+  params.set("body", message.body);
+  return `https://mail.google.com/mail/?${params.toString()}`;
+}

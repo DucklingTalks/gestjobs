@@ -4,6 +4,7 @@ import {
   buildFollowUpMessage,
   daysSince,
   detectLanguage,
+  followUpGmailUrl,
   followUpMailto,
   followUpStage,
   formatFollowUpDate,
@@ -141,5 +142,23 @@ describe("followUpMailto", () => {
     expect(followUpMailto(" sofia.s@sales.co ", message)).toBe("mailto:sofia.s@sales.co?subject=Hi&body=Thanks");
     expect(followUpMailto("a b@acme.com", message)).toBeNull();
     expect(followUpMailto("x@acme.com?cc=evil@x.com", message)).toBeNull();
+  });
+});
+
+describe("followUpGmailUrl", () => {
+  const message = { subject: "Seguimiento: QA & Dev", body: "Hola,\n\nGracias." };
+
+  it("opens Gmail compose with recipient, subject and body", () => {
+    const url = new URL(followUpGmailUrl("rec@acme.com", message));
+    expect(url.origin + url.pathname).toBe("https://mail.google.com/mail/");
+    expect(url.searchParams.get("view")).toBe("cm");
+    expect(url.searchParams.get("to")).toBe("rec@acme.com");
+    expect(url.searchParams.get("su")).toBe("Seguimiento: QA & Dev");
+    expect(url.searchParams.get("body")).toBe("Hola,\n\nGracias.");
+  });
+
+  it("leaves the recipient empty without a valid address", () => {
+    expect(new URL(followUpGmailUrl(null, message)).searchParams.has("to")).toBe(false);
+    expect(new URL(followUpGmailUrl("x@acme.com?cc=evil@x.com", message)).searchParams.has("to")).toBe(false);
   });
 });
