@@ -8,6 +8,7 @@ import { fitLabel, FitScoreHero } from "@/components/fit-score";
 import { buttonStyles, Card, formatDateTime, PageHeader, PageShell } from "@/components/ui";
 import { tailoredCvSchema } from "@/lib/ai/fit";
 import { applyKeywords, parseStoredKeywords } from "@/lib/ats/cv";
+import { profileEvidence } from "@/lib/ats/keywords";
 import { createClient } from "@/lib/supabase/server";
 import { profileFromRow } from "@/lib/validation/profile";
 
@@ -106,7 +107,9 @@ export default async function FitAnalysisPage({ params }: { params: Promise<{ id
           ) : null}
         </Card>
 
-        {keywords.length ? <KeywordsCard analysisId={analysis.id} keywords={keywords} /> : null}
+        {keywords.length ? (
+          <KeywordsCard analysisId={analysis.id} keywords={keywords} profileTerms={[...new Set(profileEvidence(profile).terms)]} />
+        ) : null}
 
         <div className="grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
           <Card title="Cover letter" description="Edit it freely; your changes are saved here.">

@@ -1,9 +1,9 @@
 import { SubmitButton } from "@/components/form-buttons";
-import { Card } from "@/components/ui";
+import { Card, fieldClass } from "@/components/ui";
 import type { StoredKeyword } from "@/lib/ats/cv";
 import { coverage } from "@/lib/ats/keywords";
 
-import { toggleKeywordRename } from "../actions";
+import { confirmKeywordAlias, toggleKeywordRename } from "../actions";
 
 const statusStyles = {
   exact: { label: "Match", className: "bg-emerald-50 text-emerald-800 ring-emerald-600/20" },
@@ -15,7 +15,16 @@ const statusStyles = {
 /** Missing first (most actionable), then suggestions and renames, then plain matches. */
 const statusOrder = { missing: 0, related: 1, renamed: 2, exact: 3 } as const;
 
-export function KeywordsCard({ analysisId, keywords }: { analysisId: string; keywords: StoredKeyword[] }) {
+export function KeywordsCard({
+  analysisId,
+  keywords,
+  profileTerms,
+}: {
+  analysisId: string;
+  keywords: StoredKeyword[];
+  /** Profile skills, certifications and languages, suggested when confirming an alias. */
+  profileTerms: string[];
+}) {
   const stats = coverage(keywords);
   const rows = keywords
     .map((keyword, index) => ({ keyword, index }))
@@ -67,10 +76,53 @@ export function KeywordsCard({ analysisId, keywords }: { analysisId: string; key
                   </SubmitButton>
                 </form>
               ) : null}
+              {keyword.status === "related" && keyword.profileTerm ? (
+                <form action={confirmKeywordAlias}>
+                  <input type="hidden" name="id" value={analysisId} />
+                  <input type="hidden" name="index" value={index} />
+                  <input type="hidden" name="profileTerm" value={keyword.profileTerm} />
+                  <SubmitButton variant="link" pendingLabel="Saving…" className="text-xs">
+                    It&apos;s the same
+                  </SubmitButton>
+                </form>
+              ) : null}
+              {keyword.status === "missing" ? (
+                <details className="w-full pl-[5.75rem] text-xs">
+                  <summary className="cursor-pointer font-medium text-accent-700">
+                    I have it under another name
+                  </summary>
+                  <form action={confirmKeywordAlias} className="mt-2 flex flex-wrap items-end gap-2">
+                    <input type="hidden" name="id" value={analysisId} />
+                    <input type="hidden" name="index" value={index} />
+                    <label className="min-w-48 flex-1 text-slate-600">
+                      The name in your profile
+                      <input
+                        name="profileTerm"
+                        required
+                        maxLength={160}
+                        list="keyword-profile-terms"
+                        className={fieldClass}
+                        placeholder="e.g. a skill or certification"
+                      />
+                    </label>
+                    <SubmitButton variant="secondary" pendingLabel="Saving…" className="py-1.5 text-xs">
+                      Save
+                    </SubmitButton>
+                  </form>
+                </details>
+              ) : null}
             </li>
           );
         })}
       </ul>
+      <datalist id="keyword-profile-terms">
+        {profileTerms.map((term) => (
+          <option key={term} value={term} />
+        ))}
+      </datalist>
+      <p className="mt-3 text-xs text-slate-500">
+        Pairs you confirm are saved to your profile and matched automatically in future analyses.
+      </p>
     </Card>
   );
 }

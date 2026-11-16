@@ -3,10 +3,10 @@
  * whether the candidate's profile supports it under the same name, under
  * another name for the same thing, under something related, or not at all.
  *
- * The shared alias dictionary decides first. The AI's opinion (one per
- * keyword, returned by the existing fit call) is used only for terms the
- * dictionary does not know, and never against FALSE_FRIENDS. Pure code:
- * no I/O, no AI calls.
+ * Pairs the user confirmed (personal aliases) decide first, then the shared
+ * alias dictionary. The AI's opinion (one per keyword, returned by the
+ * existing fit call) is used only for terms the dictionary does not know,
+ * and never against FALSE_FRIENDS. Pure code: no I/O, no AI calls.
  */
 import type { Profile } from "@/lib/validation/profile";
 
@@ -224,7 +224,25 @@ export function spellingsOf(term: string): string[] {
 
 // --- Matching --------------------------------------------------------------
 
-function matchOne(keyword: PostingKeyword, profile: ProfileEvidence): Omit<KeywordMatch, "term" | "kind" | "required"> {
+/**
+ * The profile's own wording for `term`: a profile name with the same text,
+ * or the term found as a whole word in the free text. Null when the profile
+ * does not mention it.
+ */
+export function findEvidence(profile: ProfileEvidence, term: string): string | null {
+  const name = term.trim();
+  if (!name) return null;
+  return (
+    profile.terms.find((candidate) => sameText(candidate, name)) ??
+    findTerm(withoutFalseFriends(profile.text, name), name)
+  );
+}
+
+function matchOne(
+  keyword: PostingKeyword,
+  profile: ProfileEvidence,
+  personal: PersonalAlias[],
+): Omit<KeywordMatch, "term" | "kind" | "required"> {
   const { term } = keyword;
   const text = withoutFalseFriends(profile.text, term);
 
@@ -233,7 +251,15 @@ function matchOne(keyword: PostingKeyword, profile: ProfileEvidence): Omit<Keywo
   if (exactTerm) return { status: "exact", profileTerm: exactTerm };
   if (findTerm(text, term)) return { status: "exact", profileTerm: term.trim() };
 
-  // 2. Same concept under another spelling.
+  // 2. A pair the user confirmed. It wins over the dictionary and the AI,
+  //    but still needs the profile to mention it.
+  for (const alias of personal) {
+    if (!sameConcept(alias.postingTerm, term)) continue;
+    const evidence = findEvidence(profile, alias.profileTerm);
+    if (evidence) return { status: "renamed", profileTerm: evidence };
+  }
+
+  // 3. Same concept under another spelling.
   const renamedTerm = profile.terms.find((candidate) => sameConcept(candidate, term));
   if (renamedTerm) return { status: "renamed", profileTerm: renamedTerm };
   for (const spelling of spellingsOf(term).slice(1)) {
@@ -241,7 +267,7 @@ function matchOne(keyword: PostingKeyword, profile: ProfileEvidence): Omit<Keywo
     if (found && !areFalseFriends(found, term)) return { status: "renamed", profileTerm: found };
   }
 
-  // 3. The AI's opinion, only if what it points at really is in the profile.
+  // 4. The AI's opinion, only if what it points at really is in the profile.
   const pointed = keyword.profileTerm?.trim();
   if (!pointed || keyword.relation === "none" || areFalseFriends(pointed, term)) {
     return { status: "missing", profileTerm: null };
@@ -271,10 +297,14 @@ export function appearsIn(postingText: string, term: string): boolean {
  * appear in the posting and merges duplicates (same concept). A merged
  * keyword is required if any of its copies is.
  */
+/** A pair the user confirmed: the posting's name and their own. */
+export type PersonalAlias = { postingTerm: string; profileTerm: string };
+
 export function matchKeywords(
   keywords: PostingKeyword[],
   profile: ProfileEvidence,
   postingText: string,
+  personal: PersonalAlias[] = [],
 ): KeywordMatch[] {
   const unique: PostingKeyword[] = [];
   for (const keyword of keywords) {
@@ -292,7 +322,7 @@ export function matchKeywords(
     term: keyword.term,
     kind: keyword.kind,
     required: keyword.required,
-    ...matchOne(keyword, profile),
+    ...matchOne(keyword, profile, personal),
   }));
 }
 

@@ -372,6 +372,24 @@ export interface Database {
           },
         ];
       };
+      skill_aliases: {
+        Row: {
+          id: string;
+          user_id: string;
+          posting_term: string;
+          profile_term: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          posting_term: string;
+          profile_term: string;
+          created_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["skill_aliases"]["Insert"]>;
+        Relationships: [];
+      };
     };
     Views: Record<string, never>;
     Functions: Record<string, never>;
