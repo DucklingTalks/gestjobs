@@ -18,6 +18,15 @@ import {
   PageShell,
   StatusBadge,
 } from "@/components/ui";
+import {
+  buildFollowUpMessage,
+  daysSince,
+  detectLanguage,
+  followUpStage,
+  isFollowUpDue,
+  pickRecipient,
+  type FollowUpLanguage,
+} from "@/lib/reminders/follow-up";
 import { createClient } from "@/lib/supabase/server";
 import { applicationIdSchema } from "@/lib/validation/application";
 
@@ -28,6 +37,7 @@ import {
   detachContact,
 } from "../actions";
 import { analyzeApplication } from "../../fit/actions";
+import { FollowUpCard } from "./follow-up";
 
 export const metadata: Metadata = { title: "Application detail" };
 
@@ -40,6 +50,7 @@ type ApplicationDetail = {
   job_proposal_text: string | null;
   job_proposal_url: string | null;
   job_proposal_file_path: string | null;
+  next_reminder_at: string | null;
   created_at: string;
   updated_at: string;
   status: {
@@ -70,7 +81,7 @@ type ContactOption = {
 type ContactLink = {
   contact_id: string;
   role: string;
-  contact: { id: string; name: string; email: string | null } | null;
+  contact: { id: string; name: string; email: string | null; linkedin_url: string | null } | null;
 };
 
 const PROPOSAL_BUCKET = "proposals";
@@ -95,7 +106,7 @@ export default async function ApplicationDetailPage({
   const { data: application, error: applicationError } = await supabase
     .from("applications")
     .select(
-      "id, company_name, position_title, platform_url, application_date, job_proposal_text, job_proposal_url, job_proposal_file_path, created_at, updated_at, status:statuses(id, name, is_terminal), platform:platforms(id, name, hostname)",
+      "id, company_name, position_title, platform_url, application_date, job_proposal_text, job_proposal_url, job_proposal_file_path, next_reminder_at, created_at, updated_at, status:statuses(id, name, is_terminal), platform:platforms(id, name, hostname)",
     )
     .eq("id", id)
     .eq("user_id", user.id)
@@ -144,7 +155,7 @@ export default async function ApplicationDetailPage({
       .order("name"),
     supabase
       .from("application_contacts")
-      .select("contact_id, role, contact:contacts(id, name, email)")
+      .select("contact_id, role, contact:contacts(id, name, email, linkedin_url)")
       .eq("application_id", id),
   ]);
 
@@ -185,12 +196,17 @@ export default async function ApplicationDetailPage({
 
   const { data: latestFit } = await supabase
     .from("fit_analyses")
-    .select("id, score, summary, created_at")
+    .select("id, score, summary, language, created_at")
     .eq("application_id", id)
     .eq("user_id", user.id)
     .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle();
+
+  const now = new Date();
+  const followUp = isFollowUpDue(detail.next_reminder_at, now)
+    ? await buildFollowUp(supabase, user.id, detail, historyRows, contactLinks, latestFit?.language ?? null, now)
+    : null;
 
   const hasProposal = Boolean(
     detail.job_proposal_text || detail.job_proposal_url || detail.job_proposal_file_path,
@@ -226,6 +242,8 @@ export default async function ApplicationDetailPage({
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_20rem]">
         <div className="space-y-6">
+          {followUp ? <FollowUpCard applicationId={detail.id} {...followUp} /> : null}
+
           <Card
             title="Status"
             description="Every change is added to the timeline below."
@@ -503,3 +521,49 @@ function renderErrorPage(message: string) {
   );
 }
 
+/**
+ * Data for the follow-up card: both language versions of the message, the
+ * default language (the latest fit analysis's, else a guess from the job
+ * description) and the recipient (a recruiter contact if there is one).
+ */
+async function buildFollowUp(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  userId: string,
+  detail: ApplicationDetail,
+  historyRows: HistoryRow[],
+  contactLinks: ContactLink[],
+  fitLanguage: string | null,
+  now: Date,
+) {
+  const { data: profile } = await supabase.from("profiles").select("full_name").eq("user_id", userId).maybeSingle();
+
+  const recipient = pickRecipient(
+    contactLinks.flatMap((link) =>
+      link.contact
+        ? [{ name: link.contact.name, role: link.role, email: link.contact.email, linkedinUrl: link.contact.linkedin_url }]
+        : [],
+    ),
+  );
+  const stage = followUpStage(detail.status?.name, historyRows.length);
+  const lastChange = historyRows.at(-1)?.changed_at ?? detail.application_date;
+  const build = (language: FollowUpLanguage) =>
+    buildFollowUpMessage({
+      language,
+      stage,
+      company: detail.company_name,
+      position: detail.position_title,
+      appliedOn: detail.application_date,
+      recipientName: recipient?.name ?? null,
+      senderName: profile?.full_name ?? "",
+    });
+
+  return {
+    days: daysSince(lastChange, now),
+    messages: { es: build("es"), en: build("en") },
+    defaultLanguage:
+      fitLanguage === "es" || fitLanguage === "en"
+        ? (fitLanguage as FollowUpLanguage)
+        : detectLanguage(detail.job_proposal_text),
+    recipient: recipient ? { name: recipient.name, email: recipient.email, linkedinUrl: recipient.linkedinUrl } : null,
+  };
+}

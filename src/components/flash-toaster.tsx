@@ -26,6 +26,7 @@ const APPLICATION_MESSAGES: Record<string, string> = {
   changed: "Status updated.",
   unchanged: "Status was already up to date.",
   "contact-attached": "Contact linked.",
+  "follow-up-sent": "Follow-up marked as sent. Next reminder in 15 days.",
   "contact-detached": "Contact removed.",
 };
 
