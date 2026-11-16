@@ -193,6 +193,7 @@ Full per-scenario checklist (every spec scenario mapped to a static check or run
 │   ├── components/           PlatformCombobox (native ARIA, 336 lines)
 │   ├── lib/
 │   │   ├── ai/               AI client, CV import, fit analysis, contact redaction
+│   │   ├── ats/              ATS keyword matching + CV wording (aliases, keywords, cv)
 │   │   ├── cv/               CV labels/dates + ATS PDF renderer
 │   │   ├── email/resend.ts   Idempotent email sender
 │   │   ├── jobs/             Job posting URL reader (JSON-LD + SSRF guard)
@@ -204,7 +205,8 @@ Full per-scenario checklist (every spec scenario mapped to a static check or run
 ├── supabase/
 │   ├── migrations/           001 schema, 002 buckets, 003 reminder trigger,
 │                             004 profiles, 005 fit analyses, 006 drop resumes,
-                             007 fit strengths/gaps
+                             007 fit strengths/gaps, 008 ATS keywords,
+                             009 personal ATS aliases
 │   └── seed.sql              10 global platforms (LinkedIn, Indeed, etc.)
 ├── tests/                    Vitest unit tests (PR 6)
 │   ├── platforms/infer.test.ts

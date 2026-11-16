@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { tailoredCvSchema } from "@/lib/ai/fit";
+import { applyKeywords, parseStoredKeywords } from "@/lib/ats/cv";
 import { cvFileName, renderCvPdf } from "@/lib/cv/pdf";
 import { createClient } from "@/lib/supabase/server";
 import { profileFromRow } from "@/lib/validation/profile";
@@ -22,7 +23,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
   const [{ data: analysis }, { data: profileRow }] = await Promise.all([
     supabase
       .from("fit_analyses")
-      .select("id, job_title, language, cv")
+      .select("id, job_title, language, cv, keywords")
       .eq("id", id)
       .eq("user_id", user.id)
       .maybeSingle(),
@@ -39,7 +40,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
 
   const profile = profileFromRow(profileRow);
   const pdf = await renderCvPdf({
-    cv: cv.data,
+    cv: applyKeywords(cv.data, parseStoredKeywords(analysis.keywords)),
     contact: {
       fullName: profile.fullName,
       email: profile.email,

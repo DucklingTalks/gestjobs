@@ -125,6 +125,8 @@ Use the managed project you created at [supabase.com/dashboard](https://supabase
    - `005_fit_analyses.sql` — AI job fit analyses
    - `006_drop_resumes.sql` — removes the old resume tables (delete the `resumes` bucket from the dashboard if unused)
    - `007_fit_strengths_gaps.sql` — Fit (strengths) and Gap lists on each analysis
+   - `008_fit_keywords.sql` — ATS keyword matches on each analysis
+   - `009_skill_aliases.sql` — personal ATS aliases confirmed from an analysis
 
 4. Seed the global platforms.  
    `supabase/seed.sql` is not executed automatically on hosted projects. Open the Supabase Dashboard SQL Editor and run the contents of `supabase/seed.sql`, or insert the 10 preloaded Latin-American job boards manually.

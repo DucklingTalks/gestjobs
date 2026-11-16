@@ -6,6 +6,7 @@ import { isAiConfigured } from "@/lib/ai/client";
 import { createClient } from "@/lib/supabase/server";
 import { profileFromRow } from "@/lib/validation/profile";
 
+import { SkillAliases } from "./aliases";
 import { ProfileForm } from "./profile-form";
 
 export const metadata: Metadata = { title: "Profile" };
@@ -17,13 +18,20 @@ export default async function ProfilePage() {
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const { data, error } = await supabase
-    .from("profiles")
-    .select(
-      "full_name, headline, email, phone, location, bio, skills, links, languages, experiences, education, certifications, updated_at",
-    )
-    .eq("user_id", user.id)
-    .maybeSingle();
+  const [{ data, error }, { data: aliases }] = await Promise.all([
+    supabase
+      .from("profiles")
+      .select(
+        "full_name, headline, email, phone, location, bio, skills, links, languages, experiences, education, certifications, updated_at",
+      )
+      .eq("user_id", user.id)
+      .maybeSingle(),
+    supabase
+      .from("skill_aliases")
+      .select("id, posting_term, profile_term")
+      .eq("user_id", user.id)
+      .order("posting_term"),
+  ]);
 
   const profile = profileFromRow(data);
   // Prefill the contact email from the account on first visit.
@@ -41,6 +49,7 @@ export default async function ProfilePage() {
         </div>
       ) : null}
       <ProfileForm initial={profile} aiEnabled={isAiConfigured()} />
+      <SkillAliases aliases={aliases ?? []} />
     </PageShell>
   );
 }

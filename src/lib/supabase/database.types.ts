@@ -308,6 +308,7 @@ export interface Database {
           cv: Json;
           strengths: string[];
           gaps: string[];
+          keywords: Json;
           model: string;
           created_at: string;
           updated_at: string;
@@ -327,6 +328,7 @@ export interface Database {
           cv?: Json;
           strengths?: string[];
           gaps?: string[];
+          keywords?: Json;
           model?: string;
           created_at?: string;
           updated_at?: string;
@@ -369,6 +371,24 @@ export interface Database {
             referencedColumns: ["id"];
           },
         ];
+      };
+      skill_aliases: {
+        Row: {
+          id: string;
+          user_id: string;
+          posting_term: string;
+          profile_term: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          posting_term: string;
+          profile_term: string;
+          created_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["skill_aliases"]["Insert"]>;
+        Relationships: [];
       };
     };
     Views: Record<string, never>;

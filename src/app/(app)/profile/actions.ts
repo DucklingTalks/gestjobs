@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { z } from "zod";
 
 import { extractDocumentText } from "@/lib/ai/documents";
 import { importResumeText } from "@/lib/ai/resume-import";
@@ -92,4 +93,22 @@ export async function importResume(
   if (!result.ok) return { error: result.error, profile: null, importedAt: null };
 
   return { error: null, profile: result.data, importedAt: Date.now() };
+}
+
+/** Remove one personal ATS alias. Existing analyses keep their keywords as they are. */
+export async function deleteSkillAlias(formData: FormData) {
+  const id = String(formData.get("id") ?? "");
+  if (!z.string().uuid().safeParse(id).success) redirect("/profile");
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect("/login");
+
+  const { error } = await supabase.from("skill_aliases").delete().eq("id", id).eq("user_id", user.id);
+  if (error) redirect(`/profile?error=${encodeURIComponent("Unable to remove the alias.")}#aliases`);
+
+  revalidatePath("/profile");
+  redirect("/profile?status=alias-deleted#aliases");
 }
