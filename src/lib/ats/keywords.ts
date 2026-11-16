@@ -8,6 +8,8 @@
  * dictionary does not know, and never against FALSE_FRIENDS. Pure code:
  * no I/O, no AI calls.
  */
+import type { Profile } from "@/lib/validation/profile";
+
 import { ALIASES, FALSE_FRIENDS } from "./aliases";
 
 export type KeywordKind = "skill" | "tool" | "certification" | "language" | "other";
@@ -41,6 +43,26 @@ export type KeywordMatch = {
   /** The profile wording that supports it, as written in the profile. */
   profileTerm: string | null;
 };
+
+/** Collect the profile's evidence: discrete names and free text. */
+export function profileEvidence(profile: Profile): ProfileEvidence {
+  return {
+    terms: [
+      ...profile.skills,
+      ...profile.certifications.map((cert) => cert.name),
+      ...profile.languages.map((language) => language.language),
+    ].filter(Boolean),
+    text: [
+      profile.headline,
+      profile.bio,
+      ...profile.experiences.flatMap((job) => [job.title, job.description]),
+      ...profile.education.flatMap((item) => [item.degree, item.field, item.description]),
+      ...profile.certifications.map((cert) => cert.issuer),
+    ]
+      .filter(Boolean)
+      .join("\n"),
+  };
+}
 
 // --- Normalization ---------------------------------------------------------
 
@@ -125,40 +147,76 @@ const sameText = (a: string, b: string) => a.trim().toLowerCase() === b.trim().t
 const escapeRegExp = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 /**
- * Find `term` as a whole word in `text` and return it as written there.
- * Terms of 1-2 letters (Go, R, C, AI) match case-sensitively, so ordinary
- * words ("go", "a") do not count as evidence.
+ * Regex for any of `names` as whole words. A preceding dot also counts as part
+ * of the word, so "JS" is not found inside "Next.js". Longer names are tried
+ * first.
  */
-export function findTerm(text: string, term: string): string | null {
-  const needle = term.trim();
-  if (!needle) return null;
-  const flags = compact(needle).length <= 2 ? "u" : "iu";
-  const pattern = new RegExp(`(?<![\\p{L}\\p{N}])${escapeRegExp(needle)}(?![\\p{L}\\p{N}+#])`, flags);
-  return pattern.exec(text)?.[0] ?? null;
+export function wordPattern(names: string[], flags: string): RegExp {
+  const alternatives = [...new Set(names.map((name) => name.trim()).filter(Boolean))]
+    .sort((a, b) => b.length - a.length)
+    .map(escapeRegExp);
+  return new RegExp(`(?<![\\p{L}\\p{N}.])(?:${alternatives.join("|")})(?![\\p{L}\\p{N}+#])`, flags);
 }
 
 /**
- * Remove the spellings of the term's false friends that contain it, so
- * searching for "React" does not count "React Native", and "Spring" does not
- * count "Spring Boot". Other longer names stay: "AWS Lambda" is still
- * evidence of AWS.
+ * Whether `found` in free text really is `spelling`, given that many tech
+ * names are also ordinary words:
+ * - 1-2 letter terms (Go, R, C, AI) need the same casing.
+ * - Capitalized plain words (Next, Express, Spring, Swift) do not count
+ *   written all in lowercase ("next quarter", "express interest").
+ * - Distinctive spellings (PostgreSQL, NextJS, K8s, pandas) match in any case.
  */
-function withoutFalseFriends(text: string, term: string): string {
-  let result = text;
+export function acceptsMatch(spelling: string, found: string): boolean {
+  const name = spelling.trim();
+  if (compact(name).length <= 2) return found === name;
+  if (/^\p{Lu}\p{Ll}+$/u.test(name) && found === found.toLowerCase()) return false;
+  return true;
+}
+
+/** Find `term` as a whole word in `text` and return it as written there. */
+export function findTerm(text: string, term: string): string | null {
+  if (!term.trim()) return null;
+  for (const match of text.matchAll(wordPattern([term], "giu"))) {
+    if (acceptsMatch(term, match[0])) return match[0];
+  }
+  return null;
+}
+
+/**
+ * Spellings of the term's false friends that contain the term ("React Native"
+ * for "React", "Spring Boot" for "Spring"). Matching and renaming must skip
+ * them. Other longer names stay: "AWS Lambda" is still evidence of AWS.
+ */
+export function falseFriendSpellings(term: string): string[] {
+  const names: string[] = [];
   for (const [a, b] of FALSE_FRIENDS) {
     const other = sameConcept(a, term) ? b : sameConcept(b, term) ? a : null;
     if (!other) continue;
-    for (const name of spellingsOf(other)) {
-      if (!findTerm(name, term)) continue;
-      const pattern = new RegExp(`(?<![\\p{L}\\p{N}])${escapeRegExp(name)}(?![\\p{L}\\p{N}+#])`, "giu");
-      result = result.replace(pattern, " ");
-    }
+    names.push(...spellingsOf(other).filter((name) => findTerm(name, term)));
   }
-  return result;
+  return names;
+}
+
+/**
+ * Names of other dictionary entries that contain one of the term's spellings
+ * ("AWS Lambda" for AWS, "React Native" for React). Renaming must leave them
+ * as they are.
+ */
+export function containingNames(term: string): string[] {
+  const own = keyOf(term);
+  const spellings = spellingsOf(term);
+  return ALIASES.flat().filter(
+    (name) => keyOf(name) !== own && spellings.some((spelling) => !sameText(spelling, name) && findTerm(name, spelling)),
+  );
+}
+
+function withoutFalseFriends(text: string, term: string): string {
+  const names = falseFriendSpellings(term);
+  return names.length ? text.replace(wordPattern(names, "giu"), " ") : text;
 }
 
 /** Every spelling the dictionary knows for a term, the term itself first. */
-function spellingsOf(term: string): string[] {
+export function spellingsOf(term: string): string[] {
   const id = entryOf(term);
   const names = id === null ? [] : ALIASES[id];
   return [term.trim(), ...names.filter((name) => !sameText(name, term))];

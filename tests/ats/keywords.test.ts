@@ -108,6 +108,13 @@ describe("findTerm", () => {
     expect(findTerm("happy to go the extra mile", "Go")).toBeNull();
     expect(findTerm("Services written in Go", "Go")).toBe("Go");
   });
+
+  it("does not take ordinary lowercase words for capitalized tech names", () => {
+    expect(findTerm("planning the next release", "Next")).toBeNull();
+    expect(findTerm("Shipped Next apps", "Next")).toBe("Next");
+    expect(findTerm("happy to express ideas, then Express APIs", "Express")).toBe("Express");
+    expect(findTerm("data work in pandas", "pandas")).toBe("pandas");
+  });
 });
 
 describe("matchKeywords", () => {
