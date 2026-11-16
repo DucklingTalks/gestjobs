@@ -8,7 +8,7 @@ import { aiModel, isAiConfigured } from "@/lib/ai/client";
 import { extractDocumentText } from "@/lib/ai/documents";
 import { analyzeFit, finalizeCoverLetter } from "@/lib/ai/fit";
 import { parseStoredKeywords, toStoredKeywords } from "@/lib/ats/cv";
-import { matchKeywords, profileEvidence } from "@/lib/ats/keywords";
+import { findEvidence, matchKeywords, profileEvidence, type PersonalAlias } from "@/lib/ats/keywords";
 import { fetchJobPosting } from "@/lib/jobs/fetch-posting";
 import { createClient } from "@/lib/supabase/server";
 import { isProfileUsable, profileFromRow } from "@/lib/validation/profile";
@@ -50,11 +50,11 @@ async function createAnalysis(
     return { ok: false, error: "The job posting is too short to analyse. Paste the full description." };
   }
 
-  const result = await analyzeFit(profile, job.text);
+  const [result, personal] = await Promise.all([analyzeFit(profile, job.text), loadPersonalAliases(supabase, userId)]);
   if (!result.ok) return result;
 
   const fit = result.data;
-  const keywords = toStoredKeywords(matchKeywords(fit.keywords, profileEvidence(profile), job.text));
+  const keywords = toStoredKeywords(matchKeywords(fit.keywords, profileEvidence(profile), job.text, personal));
   const { data: inserted, error } = await supabase
     .from("fit_analyses")
     .insert({
@@ -79,6 +79,12 @@ async function createAnalysis(
 
   if (error || !inserted) return { ok: false, error: "The analysis finished but could not be saved." };
   return { ok: true, id: inserted.id };
+}
+
+/** The user's confirmed pairs. A failure only means no personal matches. */
+async function loadPersonalAliases(supabase: Supabase, userId: string): Promise<PersonalAlias[]> {
+  const { data } = await supabase.from("skill_aliases").select("posting_term, profile_term").eq("user_id", userId);
+  return (data ?? []).map((row) => ({ postingTerm: row.posting_term, profileTerm: row.profile_term }));
 }
 
 export type FitFormState = { error: string | null };
@@ -231,6 +237,59 @@ export async function toggleKeywordRename(formData: FormData) {
   if (error) redirect(`/fit/${id}?error=${encodeURIComponent("Unable to update the keyword.")}`);
   revalidatePath(`/fit/${id}`);
   redirect(`/fit/${id}?status=keyword-updated#keywords`);
+}
+
+/**
+ * Confirm that a related or missing keyword is something the profile has
+ * under another name. It becomes a rename in this analysis and is saved as a
+ * personal alias for future ones. The profile must really mention the term.
+ */
+export async function confirmKeywordAlias(formData: FormData) {
+  const id = String(formData.get("id") ?? "");
+  const index = Number(formData.get("index"));
+  if (!idSchema.safeParse(id).success) redirect("/fit");
+  const back = (message: string): never =>
+    redirect(`/fit/${id}?error=${encodeURIComponent(message)}#keywords`);
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect("/login");
+
+  const [{ data: analysis }, { data: profileRow }] = await Promise.all([
+    supabase.from("fit_analyses").select("keywords").eq("id", id).eq("user_id", user.id).maybeSingle(),
+    supabase.from("profiles").select(PROFILE_COLUMNS).eq("user_id", user.id).maybeSingle(),
+  ]);
+  if (!analysis) redirect("/fit");
+
+  const keywords = parseStoredKeywords(analysis.keywords);
+  const keyword = Number.isInteger(index) ? keywords[index] : undefined;
+  if (!keyword || (keyword.status !== "related" && keyword.status !== "missing")) redirect(`/fit/${id}`);
+
+  const requested = String(formData.get("profileTerm") ?? keyword.profileTerm ?? "").trim().slice(0, 160);
+  if (!requested) back("Enter the name your profile uses for it.");
+  const evidence = findEvidence(profileEvidence(profileFromRow(profileRow)), requested);
+  if (!evidence) back(`“${requested}” is not in your profile. Add it there first.`);
+  const profileTerm = evidence as string;
+
+  const { error: aliasError } = await supabase
+    .from("skill_aliases")
+    .insert({ user_id: user.id, posting_term: keyword.term.slice(0, 80), profile_term: profileTerm });
+  // 23505: the pair is already saved (in any casing); nothing to add.
+  if (aliasError && aliasError.code !== "23505") back("Unable to save the alias.");
+
+  keywords[index] = { ...keyword, status: "renamed", profileTerm, applied: true };
+  const { error } = await supabase
+    .from("fit_analyses")
+    .update({ keywords, updated_at: new Date().toISOString() })
+    .eq("id", id)
+    .eq("user_id", user.id);
+  if (error) back("Unable to update the keyword.");
+
+  revalidatePath(`/fit/${id}`);
+  revalidatePath("/profile");
+  redirect(`/fit/${id}?status=alias-saved#keywords`);
 }
 
 export async function deleteAnalysis(formData: FormData) {

@@ -7,6 +7,7 @@ import {
   canonicalName,
   compact,
   coverage,
+  findEvidence,
   findTerm,
   matchKeywords,
   sameConcept,
@@ -240,5 +241,55 @@ describe("coverage", () => {
       "React, Next.js, GraphQL, Docker",
     );
     expect(coverage(matches)).toEqual({ covered: 3, total: 4, requiredCovered: 2, requiredTotal: 3 });
+  });
+});
+
+describe("personal aliases", () => {
+  const hexagonal = { postingTerm: "Hexagonal Architecture", profileTerm: "Ports and Adapters" };
+
+  it("renames a pair the user confirmed, before the dictionary and the AI", () => {
+    const match = matchKeywords([kw("Hexagonal Architecture")], profile(["Ports and Adapters"]), "Hexagonal Architecture", [
+      hexagonal,
+    ])[0];
+    expect(match).toMatchObject({ status: "renamed", profileTerm: "Ports and Adapters" });
+  });
+
+  it("matches the posting side by concept, not exact text", () => {
+    const match = matchKeywords([kw("Node")], profile(["Bun"]), "Node", [{ postingTerm: "Node.js", profileTerm: "Bun" }])[0];
+    expect(match).toMatchObject({ status: "renamed", profileTerm: "Bun" });
+  });
+
+  it("finds the profile side in free text, as written there", () => {
+    const match = matchKeywords(
+      [kw("Hexagonal Architecture")],
+      profile([], "Designed services with ports and adapters."),
+      "Hexagonal Architecture",
+      [hexagonal],
+    )[0];
+    expect(match).toMatchObject({ status: "renamed", profileTerm: "ports and adapters" });
+  });
+
+  it("does nothing when the profile no longer mentions it", () => {
+    const match = matchKeywords([kw("Hexagonal Architecture")], profile(["DDD"]), "Hexagonal Architecture", [
+      hexagonal,
+    ])[0];
+    expect(match.status).toBe("missing");
+  });
+
+  it("never overrides an exact match", () => {
+    const match = matchKeywords([kw("React")], profile(["React", "Preact"]), "React", [
+      { postingTerm: "React", profileTerm: "Preact" },
+    ])[0];
+    expect(match).toMatchObject({ status: "exact", profileTerm: "React" });
+  });
+});
+
+describe("findEvidence", () => {
+  it("returns the profile's own wording, or null", () => {
+    const evidence = profile(["GraphQL"], "Built React Native apps and REST APIs.");
+    expect(findEvidence(evidence, "graphql")).toBe("GraphQL");
+    expect(findEvidence(evidence, "rest apis")).toBe("REST APIs");
+    expect(findEvidence(evidence, "React")).toBeNull();
+    expect(findEvidence(evidence, "  ")).toBeNull();
   });
 });
