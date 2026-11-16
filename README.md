@@ -9,7 +9,7 @@ A personal job-application tracker that keeps every role, status change, contact
 ## Quick start
 
 ```bash
-# 1. Prerequisites: Node >= 20, pnpm 9, accounts on Supabase / Resend / Vercel.
+# 1. Prerequisites: Node >= 22, pnpm 9, accounts on Supabase / Resend / Vercel.
 #    See docs/local-development.md for the install-and-run guide,
 #    and docs/requirements.md for the account provisioning checklist.
 
