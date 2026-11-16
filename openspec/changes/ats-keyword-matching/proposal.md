@@ -52,7 +52,8 @@ A pure module `src/lib/ats/keywords.ts`:
 
 | Status | Meaning | CV action |
 |---|---|---|
-| `exact` | Same normalized term in the profile | none |
+| `exact` | Same wording in the profile, ignoring case | none |
+| `renamed` (spelling) | Same term written differently, e.g. `NextJS` vs `Next.js` | use the posting's wording |
 | `renamed` | Dictionary alias, or AI `same` that is not vetoed | use the posting's wording |
 | `related` | AI `related` (e.g. has AWS, posting asks for AWS Lambda) | suggest only, no rename |
 | `missing` | No support in the profile | listed as a gap |
