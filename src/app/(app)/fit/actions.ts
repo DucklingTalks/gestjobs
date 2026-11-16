@@ -7,6 +7,8 @@ import { z } from "zod";
 import { aiModel, isAiConfigured } from "@/lib/ai/client";
 import { extractDocumentText } from "@/lib/ai/documents";
 import { analyzeFit, finalizeCoverLetter } from "@/lib/ai/fit";
+import { parseStoredKeywords, toStoredKeywords } from "@/lib/ats/cv";
+import { matchKeywords, profileEvidence } from "@/lib/ats/keywords";
 import { fetchJobPosting } from "@/lib/jobs/fetch-posting";
 import { createClient } from "@/lib/supabase/server";
 import { isProfileUsable, profileFromRow } from "@/lib/validation/profile";
@@ -52,6 +54,7 @@ async function createAnalysis(
   if (!result.ok) return result;
 
   const fit = result.data;
+  const keywords = toStoredKeywords(matchKeywords(fit.keywords, profileEvidence(profile), job.text));
   const { data: inserted, error } = await supabase
     .from("fit_analyses")
     .insert({
@@ -68,6 +71,7 @@ async function createAnalysis(
       gaps: fit.gaps,
       cover_letter: finalizeCoverLetter(fit.coverLetter, profile.fullName),
       cv: fit.cv,
+      keywords,
       model: aiModel(),
     })
     .select("id")
@@ -191,6 +195,42 @@ export async function saveCoverLetter(formData: FormData) {
   if (error) redirect(`/fit/${id}?error=${encodeURIComponent("Unable to save the cover letter.")}`);
   revalidatePath(`/fit/${id}`);
   redirect(`/fit/${id}?status=letter-saved`);
+}
+
+/** Switch one renamed keyword between the posting's wording and the profile's own. */
+export async function toggleKeywordRename(formData: FormData) {
+  const id = String(formData.get("id") ?? "");
+  const index = Number(formData.get("index"));
+  if (!idSchema.safeParse(id).success) redirect("/fit");
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect("/login");
+
+  const { data: analysis } = await supabase
+    .from("fit_analyses")
+    .select("keywords")
+    .eq("id", id)
+    .eq("user_id", user.id)
+    .maybeSingle();
+  if (!analysis) redirect("/fit");
+
+  const keywords = parseStoredKeywords(analysis.keywords);
+  const keyword = Number.isInteger(index) ? keywords[index] : undefined;
+  if (!keyword || keyword.status !== "renamed") redirect(`/fit/${id}`);
+  keywords[index] = { ...keyword, applied: !keyword.applied };
+
+  const { error } = await supabase
+    .from("fit_analyses")
+    .update({ keywords, updated_at: new Date().toISOString() })
+    .eq("id", id)
+    .eq("user_id", user.id);
+
+  if (error) redirect(`/fit/${id}?error=${encodeURIComponent("Unable to update the keyword.")}`);
+  revalidatePath(`/fit/${id}`);
+  redirect(`/fit/${id}?status=keyword-updated#keywords`);
 }
 
 export async function deleteAnalysis(formData: FormData) {

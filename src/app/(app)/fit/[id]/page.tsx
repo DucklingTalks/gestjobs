@@ -7,12 +7,14 @@ import { SubmitButton } from "@/components/form-buttons";
 import { fitLabel, FitScoreHero } from "@/components/fit-score";
 import { buttonStyles, Card, formatDateTime, PageHeader, PageShell } from "@/components/ui";
 import { tailoredCvSchema } from "@/lib/ai/fit";
+import { applyKeywords, parseStoredKeywords } from "@/lib/ats/cv";
 import { createClient } from "@/lib/supabase/server";
 import { profileFromRow } from "@/lib/validation/profile";
 
 import { deleteAnalysis } from "../actions";
 import { CoverLetterEditor } from "./cover-letter";
 import { CvPreview } from "./cv-preview";
+import { KeywordsCard } from "./keywords";
 
 export const metadata: Metadata = { title: "Fit analysis" };
 
@@ -30,7 +32,7 @@ export default async function FitAnalysisPage({ params }: { params: Promise<{ id
     supabase
       .from("fit_analyses")
       .select(
-        "id, application_id, job_title, company, job_source_url, job_text, language, score, summary, strengths, gaps, cover_letter, cv, model, created_at",
+        "id, application_id, job_title, company, job_source_url, job_text, language, score, summary, strengths, gaps, cover_letter, cv, keywords, model, created_at",
       )
       .eq("id", id)
       .eq("user_id", user.id)
@@ -44,7 +46,9 @@ export default async function FitAnalysisPage({ params }: { params: Promise<{ id
   if (!analysis) notFound();
 
   const profile = profileFromRow(profileRow);
-  const cv = tailoredCvSchema.safeParse(analysis.cv);
+  const keywords = parseStoredKeywords(analysis.keywords);
+  const parsedCv = tailoredCvSchema.safeParse(analysis.cv);
+  const cv = parsedCv.success ? { success: true as const, data: applyKeywords(parsedCv.data, keywords) } : parsedCv;
   const contact = {
     fullName: profile.fullName,
     email: profile.email,
@@ -101,6 +105,8 @@ export default async function FitAnalysisPage({ params }: { params: Promise<{ id
             </div>
           ) : null}
         </Card>
+
+        {keywords.length ? <KeywordsCard analysisId={analysis.id} keywords={keywords} /> : null}
 
         <div className="grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
           <Card title="Cover letter" description="Edit it freely; your changes are saved here.">

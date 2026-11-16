@@ -42,6 +42,7 @@ const PROFILE_MESSAGES: Record<string, string> = {
 const FIT_MESSAGES: Record<string, string> = {
   analysed: "Analysis ready.",
   "letter-saved": "Cover letter saved.",
+  "keyword-updated": "CV wording updated.",
   "analysis-deleted": "Analysis deleted.",
 };
 
