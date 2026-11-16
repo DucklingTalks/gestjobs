@@ -4,7 +4,12 @@ import { useState } from "react";
 
 import { SubmitButton } from "@/components/form-buttons";
 import { buttonStyles, fieldClass, labelClass } from "@/components/ui";
-import { followUpMailto, type FollowUpLanguage, type FollowUpMessage } from "@/lib/reminders/follow-up";
+import {
+  followUpGmailUrl,
+  followUpMailto,
+  type FollowUpLanguage,
+  type FollowUpMessage,
+} from "@/lib/reminders/follow-up";
 
 import { markFollowUpSent } from "../actions";
 
@@ -39,6 +44,7 @@ export function FollowUpCard({
   };
 
   const mailto = followUpMailto(recipient?.email ?? null, { subject, body });
+  const gmail = followUpGmailUrl(recipient?.email ?? null, { subject, body });
 
   return (
     <section
@@ -109,9 +115,13 @@ export function FollowUpCard({
           >
             {copied ? "Copied ✓" : "Copy message"}
           </button>
+          {/* A fixed window name lets the browser reuse the compose tab it opened before. */}
+          <a href={gmail} target="gmail-compose" rel="noopener" className={buttonStyles.secondary}>
+            Open in Gmail ↗
+          </a>
           {mailto ? (
             <a href={mailto} className={buttonStyles.secondary}>
-              Open in email
+              Open in email app
             </a>
           ) : null}
           {recipient?.linkedinUrl ? (
