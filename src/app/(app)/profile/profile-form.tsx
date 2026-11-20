@@ -10,6 +10,7 @@
  */
 
 import { startTransition, useActionState, useCallback, useEffect, useRef, useState } from "react";
+import Link from "next/link";
 
 import { SubmitButton } from "@/components/form-buttons";
 import { Alert, buttonStyles, Card, fieldClass, labelClass } from "@/components/ui";
@@ -20,7 +21,7 @@ import { ImportResume } from "./import-resume";
 
 const initialState: ProfileFormState = { error: null };
 
-type ListKey = "experiences" | "education" | "links" | "languages" | "certifications";
+type ListKey = "experiences" | "education" | "links" | "languages" | "certifications" | "strengths";
 
 const BLANK: { [K in ListKey]: Profile[K][number] } = {
   experiences: {
@@ -36,6 +37,7 @@ const BLANK: { [K in ListKey]: Profile[K][number] } = {
   links: { label: "", url: "" },
   languages: { language: "", level: "" },
   certifications: { name: "", issuer: "", year: "" },
+  strengths: { name: "", kind: "technical", context: "", evidence: "" },
 };
 
 function splitSkills(value: string): string[] {
@@ -411,6 +413,84 @@ export function ProfileForm({ initial, aiEnabled }: { initial: Profile; aiEnable
             aria-label="Skills"
           />
         </Card>
+
+        <div id="strengths" className="scroll-mt-20">
+          <Card
+            title="Strengths"
+            description="Qualities you can back with a real example, like algorithmic thinking or mentoring. Fit analyses and tailored CVs use them as facts."
+            actions={
+              aiEnabled ? (
+                <Link href="/profile/interview" className={buttonStyles.secondary}>
+                  Interview me with AI
+                </Link>
+              ) : null
+            }
+          >
+            <div className="space-y-6">
+              {profile.strengths.length === 0 ? (
+                <p className="text-sm text-slate-500">
+                  {aiEnabled
+                    ? "No strengths yet. Add them by hand, or let the AI interview you to find experience your profile is missing. Save your profile first if you have unsaved changes."
+                    : "No strengths yet."}
+                </p>
+              ) : null}
+              {profile.strengths.map((item, index) => (
+                <fieldset key={index} className="space-y-4 rounded-lg border border-slate-200 p-4">
+                  <div className="flex items-center justify-between">
+                    <legend className="text-sm font-semibold text-slate-900">
+                      {item.name || `Strength ${index + 1}`}
+                    </legend>
+                    {rowControls("strengths", index, profile.strengths.length)}
+                  </div>
+                  <div className="grid gap-4 sm:grid-cols-[1fr_9rem_1fr]">
+                    <label className={labelClass}>
+                      Name
+                      <input
+                        value={item.name}
+                        onChange={(e) => updateItem("strengths", index, { name: e.target.value })}
+                        placeholder="Algorithmic thinking"
+                        className={fieldClass}
+                      />
+                    </label>
+                    <label className={labelClass}>
+                      Type
+                      <select
+                        value={item.kind}
+                        onChange={(e) =>
+                          updateItem("strengths", index, { kind: e.target.value === "soft" ? "soft" : "technical" })
+                        }
+                        className={fieldClass}
+                      >
+                        <option value="technical">Technical</option>
+                        <option value="soft">Soft</option>
+                      </select>
+                    </label>
+                    <label className={labelClass}>
+                      Where
+                      <input
+                        value={item.context}
+                        onChange={(e) => updateItem("strengths", index, { context: e.target.value })}
+                        placeholder="Frontend Lead at Acme"
+                        className={fieldClass}
+                      />
+                    </label>
+                  </div>
+                  <label className={labelClass}>
+                    Evidence
+                    <textarea
+                      value={item.evidence}
+                      onChange={(e) => updateItem("strengths", index, { evidence: e.target.value })}
+                      rows={3}
+                      placeholder="A concrete example: the problem, what you did and the result."
+                      className={fieldClass}
+                    />
+                  </label>
+                </fieldset>
+              ))}
+              {addButton("strengths", "Add strength")}
+            </div>
+          </Card>
+        </div>
 
         <div className="grid gap-6 lg:grid-cols-2">
           <Card title="Languages">

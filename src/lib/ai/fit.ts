@@ -122,7 +122,8 @@ const CV_RULES = `cv: must be ATS-friendly and truthful.
 - summary: 2-4 sentences tailored to the role.
 - skills: most relevant first, max 20, plain terms (no ratings). Write a skill with the posting's exact spelling when the profile has it under another name (e.g. "Next.js" for "NextJS").
 - experiences: keep all real positions in reverse chronological order, with original company, title and dates; 2-6 bullets each for relevant roles (fewer for unrelated ones), starting with an action verb, quantified only with numbers from the profile. No bullet symbols in the text.
-- education, languages, certifications: copy the relevant entries.`;
+- education, languages, certifications: copy the relevant entries.
+- strengths (in the profile) are qualities the candidate confirmed, each with evidence; treat that evidence as fact. Use the relevant ones in the summary and turn their evidence into bullets under the experience named in their context (or the one it clearly belongs to). Never list soft qualities under skills; a technical strength goes in skills only if it is a concrete, searchable skill.`;
 
 const CV_SHAPE = `{
     "headline": string, "summary": string, "skills": string[],
@@ -208,6 +209,7 @@ export function profileForAi(profile: Profile) {
     experiences: profile.experiences,
     education: profile.education,
     certifications: profile.certifications,
+    strengths: profile.strengths,
   };
 }
 

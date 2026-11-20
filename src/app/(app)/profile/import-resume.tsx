@@ -19,6 +19,8 @@ function mergeImported(current: Profile, imported: Profile): Profile {
     phone: imported.phone || current.phone,
     location: imported.location || current.location,
     links: imported.links.length ? imported.links : current.links,
+    // A CV import never yields strengths; keep the ones the user confirmed.
+    strengths: current.strengths,
   };
 }
 

@@ -39,6 +39,7 @@ const CONTACT_MESSAGES: Record<string, string> = {
 const PROFILE_MESSAGES: Record<string, string> = {
   "profile-saved": "Profile saved.",
   "alias-deleted": "Alias removed.",
+  "strengths-added": "Strengths added to your profile.",
 };
 
 const FIT_MESSAGES: Record<string, string> = {
