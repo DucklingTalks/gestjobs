@@ -269,6 +269,7 @@ export interface Database {
           experiences: Json;
           education: Json;
           certifications: Json;
+          strengths: Json;
           created_at: string;
           updated_at: string;
         };
@@ -286,6 +287,7 @@ export interface Database {
           experiences?: Json;
           education?: Json;
           certifications?: Json;
+          strengths?: Json;
           created_at?: string;
           updated_at?: string;
         };

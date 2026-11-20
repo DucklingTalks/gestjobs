@@ -4,14 +4,22 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 
+import { isAiConfigured } from "@/lib/ai/client";
 import { extractDocumentText } from "@/lib/ai/documents";
+import { interviewTurn, mergeStrengths, summarizeInterview, type InterviewTurn } from "@/lib/ai/interview";
 import { importResumeText } from "@/lib/ai/resume-import";
 import { createClient } from "@/lib/supabase/server";
+import { candidateAnswers, MIN_ANSWERS_TO_SUMMARIZE, transcriptSchema } from "@/lib/validation/interview";
 import {
   compactProfile,
+  MAX_STRENGTHS,
+  PROFILE_COLUMNS,
+  profileFromRow,
   profileSchema,
   profileToRow,
+  strengthSchema,
   type Profile,
+  type Strength,
 } from "@/lib/validation/profile";
 
 export type ProfileFormState = { error: string | null };
@@ -111,4 +119,93 @@ export async function deleteSkillAlias(formData: FormData) {
 
   revalidatePath("/profile");
   redirect("/profile?status=alias-deleted#aliases");
+}
+
+// --- AI interview -------------------------------------------------------------
+
+type Supabase = Awaited<ReturnType<typeof createClient>>;
+
+async function requireUser(supabase: Supabase) {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect("/login");
+  return user;
+}
+
+async function loadProfile(supabase: Supabase, userId: string) {
+  const { data, error } = await supabase.from("profiles").select(PROFILE_COLUMNS).eq("user_id", userId).maybeSingle();
+  return { profile: profileFromRow(data), exists: Boolean(data), error };
+}
+
+export type InterviewTurnResult = { ok: true; turn: InterviewTurn } | { ok: false; error: string };
+
+/** Next interviewer message. The client owns the transcript and sends it whole. */
+export async function nextInterviewTurn(transcript: unknown): Promise<InterviewTurnResult> {
+  const supabase = await createClient();
+  const user = await requireUser(supabase);
+  if (!isAiConfigured()) return { ok: false, error: "AI is not configured. Add OPENCODE_API_KEY to the environment." };
+
+  const parsed = transcriptSchema.safeParse(transcript);
+  if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid conversation." };
+
+  const { profile, error } = await loadProfile(supabase, user.id);
+  if (error) return { ok: false, error: "Unable to load your profile." };
+
+  const result = await interviewTurn(profile, parsed.data);
+  return result.ok ? { ok: true, turn: result.data } : result;
+}
+
+export type InterviewSummaryResult = { ok: true; strengths: Strength[] } | { ok: false; error: string };
+
+/** Strengths proposed from the conversation. Nothing is saved here. */
+export async function proposeStrengths(transcript: unknown): Promise<InterviewSummaryResult> {
+  const supabase = await createClient();
+  const user = await requireUser(supabase);
+  if (!isAiConfigured()) return { ok: false, error: "AI is not configured. Add OPENCODE_API_KEY to the environment." };
+
+  const parsed = transcriptSchema.safeParse(transcript);
+  if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid conversation." };
+  if (candidateAnswers(parsed.data) < MIN_ANSWERS_TO_SUMMARIZE) {
+    return { ok: false, error: `Answer at least ${MIN_ANSWERS_TO_SUMMARIZE} questions first.` };
+  }
+
+  const { profile, error } = await loadProfile(supabase, user.id);
+  if (error) return { ok: false, error: "Unable to load your profile." };
+
+  const result = await summarizeInterview(profile, parsed.data);
+  return result.ok ? { ok: true, strengths: result.data } : result;
+}
+
+export type SaveStrengthsResult = { ok: true; added: number } | { ok: false; error: string };
+
+/** Append the strengths the candidate kept to the profile, merging by name. */
+export async function saveInterviewStrengths(strengths: unknown): Promise<SaveStrengthsResult> {
+  const supabase = await createClient();
+  const user = await requireUser(supabase);
+
+  const parsed = strengthSchema.array().max(MAX_STRENGTHS).safeParse(strengths);
+  if (!parsed.success) return { ok: false, error: "Some strengths are invalid. Check names and evidence." };
+  const incoming = parsed.data.filter((strength) => strength.name);
+  if (!incoming.length) return { ok: false, error: "Keep at least one strength to save." };
+
+  const { profile, exists, error } = await loadProfile(supabase, user.id);
+  if (error) return { ok: false, error: "Unable to load your profile." };
+
+  const merged = mergeStrengths(profile.strengths, incoming, MAX_STRENGTHS);
+  const before = profile.strengths.length;
+  if (merged.length === before && before >= MAX_STRENGTHS) {
+    return { ok: false, error: `Your profile already has ${MAX_STRENGTHS} strengths. Remove some first.` };
+  }
+
+  const next: Profile = { ...profile, strengths: merged };
+  if (!exists && user.email) next.email = user.email;
+  const { error: saveError } = await supabase.from("profiles").upsert(
+    { user_id: user.id, ...profileToRow(next), updated_at: new Date().toISOString() },
+    { onConflict: "user_id" },
+  );
+  if (saveError) return { ok: false, error: "Unable to save the strengths. Try again in a moment." };
+
+  revalidatePath("/profile");
+  return { ok: true, added: merged.length - before };
 }

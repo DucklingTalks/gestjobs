@@ -5,7 +5,7 @@ import { tailoredCvSchema } from "@/lib/ai/fit";
 import { applyKeywords, parseStoredKeywords } from "@/lib/ats/cv";
 import { cvFileName, renderCvPdf } from "@/lib/cv/pdf";
 import { createClient } from "@/lib/supabase/server";
-import { profileFromRow } from "@/lib/validation/profile";
+import { PROFILE_COLUMNS, profileFromRow } from "@/lib/validation/profile";
 
 /** GET /fit/[id]/cv — download the tailored CV as an ATS-friendly PDF. */
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -29,7 +29,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
       .maybeSingle(),
     supabase
       .from("profiles")
-      .select("full_name, headline, email, phone, location, bio, skills, links, languages, experiences, education, certifications")
+      .select(PROFILE_COLUMNS)
       .eq("user_id", user.id)
       .maybeSingle(),
   ]);
