@@ -1,0 +1,83 @@
+# Security audit: <project>
+
+- **Date:** YYYY-MM-DD
+- **Target:** `<path>` · `<public URL or "not deployed">`
+- **Audited commit:** `<hash or "not a git repo">`
+- **Gate verdict:** READY TO PUBLISH / BLOCKED
+- **Summary:** PASS n · FAIL n · PARTIAL n · VERIFY n · N/A n · ACCEPTED n
+
+## Architecture summary
+
+<3–6 lines from recon: stack, hosting, data stores, auth, public endpoints, CI.>
+
+## Checklist
+
+Status legend: `PASS` ok · `FAIL` missing or broken · `PARTIAL` incomplete · `VERIFY` needs a human or live check · `N/A` doesn't apply (reason required) · `ACCEPTED` risk accepted by the user (owner + reviewBy).
+
+Tick the box only when the status is PASS, N/A, or ACCEPTED (unexpired).
+
+### A. Secrets & configuration
+- [ ] **1. Hide API keys** · `STATUS` · Evidence: … · Fix: …
+- [ ] **2. Remove secrets from Git history** · `STATUS` · Evidence: … · Fix: …
+- [ ] **3. Public key only for the DB client** · `STATUS` · Evidence: … · Fix: …
+
+### B. Data & access
+- [ ] **4. Row-Level Security** · `STATUS` · Evidence: … · Fix: …
+- [ ] **5. Encrypt sensitive data** · `STATUS` · Evidence: … · Fix: …
+- [ ] **7. Restrict access to records** · `STATUS` · Evidence: … · Fix: …
+- [ ] **13. Parameterize queries** · `STATUS` · Evidence: … · Fix: …
+
+### C. Identity & session
+- [ ] **6. Enforce authentication** · `STATUS` · Evidence: … · Fix: …
+- [ ] **9. Protect session cookies** · `STATUS` · Evidence: … · Fix: …
+- [ ] **10. Hash passwords** · `STATUS` · Evidence: … · Fix: …
+- [ ] **23. Expiring, single-use tokens and links** · `STATUS` · Evidence: … · Fix: …
+
+### D. Input & output handling
+- [ ] **8. Block field manipulation** · `STATUS` · Evidence: … · Fix: …
+- [ ] **14. Validate inputs** · `STATUS` · Evidence: … · Fix: …
+- [ ] **15. Sanitize content** · `STATUS` · Evidence: … · Fix: …
+- [ ] **16. Restrict files** · `STATUS` · Evidence: … · Fix: …
+- [ ] **17. Return only necessary data** · `STATUS` · Evidence: … · Fix: …
+- [ ] **22. Verify webhook signatures** · `STATUS` · Evidence: … · Fix: …
+
+### E. Abuse prevention
+- [ ] **11. Rate limiting** · `STATUS` · Evidence: … · Fix: …
+- [ ] **12. Bot protection** · `STATUS` · Evidence: … · Fix: …
+
+### F. Transport & platform
+- [ ] **18. Security headers** · `STATUS` · Evidence: … · Fix: …
+- [ ] **19. Enforce HTTPS** · `STATUS` · Evidence: … · Fix: …
+- [ ] **21. Lock down CORS** · `STATUS` · Evidence: … · Fix: …
+
+### G. Supply chain
+- [ ] **20. Scan dependencies** · `STATUS` · Evidence: … · Fix: …
+
+### H. Accounts & operations
+- [ ] **24. MFA on platform accounts** · `STATUS` · Evidence: … · Fix: …
+
+  | Account | MFA on | Enforced for org | Members reviewed |
+  |---|---|---|---|
+  | | | | |
+
+- [ ] **25. Backups with a tested restore** · `STATUS` · Evidence: … · Last restore test: … · Fix: …
+
+## Blocking items (by severity)
+
+| # | Control | Severity | Fix | Work unit |
+|---|---|---|---|---|
+| | | | | |
+
+## Accepted risks
+
+| # | Control | Reason | Owner | reviewBy |
+|---|---|---|---|---|
+| | | | | |
+
+## Commands proposed to the user
+
+<Cloud or live checks the auditor must not run itself, e.g. RLS state queries, `curl -sI`.>
+
+## History
+
+- YYYY-MM-DD: initial audit.
