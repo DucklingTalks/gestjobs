@@ -37,3 +37,6 @@ supabase/.temp
 coverage/
 
 # NOTE: OpenSpec artifacts are intentionally NOT excluded.
+
+# gentle-ai skill registry (auto-generated, machine-specific)
+.atl/
