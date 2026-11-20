@@ -49,6 +49,7 @@ const FIT_MESSAGES: Record<string, string> = {
   "keyword-updated": "CV wording updated.",
   "alias-saved": "Saved. Future analyses will match it too.",
   "analysis-deleted": "Analysis deleted.",
+  "strengths-added": "Strengths added to your profile. Re-run the analysis to use them.",
 };
 
 const MESSAGES_BY_PATH: Array<[prefix: string, table: Record<string, string>]> = [

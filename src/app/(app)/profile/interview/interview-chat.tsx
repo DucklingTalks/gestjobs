@@ -23,7 +23,7 @@ import { nextInterviewTurn, proposeStrengths, saveInterviewStrengths } from "../
 
 type Proposal = Strength & { keep: boolean };
 
-export function InterviewChat() {
+export function InterviewChat({ analysisId }: { analysisId?: string }) {
   const router = useRouter();
   const [messages, setMessages] = useState<InterviewMessage[]>([]);
   const [input, setInput] = useState("");
@@ -45,7 +45,7 @@ export function InterviewChat() {
   function requestTurn(transcript: InterviewMessage[]) {
     setError(null);
     startTransition(async () => {
-      const result = await nextInterviewTurn(transcript);
+      const result = await nextInterviewTurn(transcript, analysisId);
       if (!result.ok) {
         setError(result.error);
         return;
@@ -87,7 +87,7 @@ export function InterviewChat() {
   function finish() {
     setError(null);
     startTransition(async () => {
-      const result = await proposeStrengths(messages);
+      const result = await proposeStrengths(messages, analysisId);
       if (!result.ok) {
         setError(result.error);
         return;
@@ -114,7 +114,9 @@ export function InterviewChat() {
         return;
       }
       setSaved(true);
-      router.push("/profile?status=strengths-added#strengths");
+      router.push(
+        analysisId ? `/fit/${analysisId}?status=strengths-added#rerun` : "/profile?status=strengths-added#strengths",
+      );
     });
   }
 

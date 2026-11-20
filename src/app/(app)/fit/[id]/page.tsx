@@ -6,13 +6,14 @@ import { z } from "zod";
 import { SubmitButton } from "@/components/form-buttons";
 import { fitLabel, FitScoreHero } from "@/components/fit-score";
 import { buttonStyles, Card, formatDateTime, PageHeader, PageShell } from "@/components/ui";
+import { isAiConfigured } from "@/lib/ai/client";
 import { tailoredCvSchema } from "@/lib/ai/fit";
 import { applyKeywords, parseStoredKeywords } from "@/lib/ats/cv";
 import { profileEvidence } from "@/lib/ats/keywords";
 import { createClient } from "@/lib/supabase/server";
 import { PROFILE_COLUMNS, profileFromRow } from "@/lib/validation/profile";
 
-import { deleteAnalysis, generateFitDocuments } from "../actions";
+import { deleteAnalysis, generateFitDocuments, reanalyzeFit } from "../actions";
 import { CoverLetterEditor } from "./cover-letter";
 import { CvPreview } from "./cv-preview";
 import { KeywordsCard } from "./keywords";
@@ -105,6 +106,32 @@ export default async function FitAnalysisPage({ params }: { params: Promise<{ id
             <div className="mt-6 grid gap-4 sm:grid-cols-2">
               <ReasonList tone="fit" title="Fit" subtitle="Why you match" items={analysis.strengths} />
               <ReasonList tone="gap" title="Gap" subtitle="What may hold you back" items={analysis.gaps} />
+            </div>
+          ) : null}
+
+          {isAiConfigured() ? (
+            <div
+              id="rerun"
+              className="mt-6 flex scroll-mt-20 flex-col gap-3 border-t border-slate-100 pt-4 sm:flex-row sm:items-center sm:justify-between"
+            >
+              <p className="text-sm text-slate-600">
+                {analysis.gaps.length ? (
+                  <>
+                    Have experience that covers these gaps but isn&apos;t in your profile?{" "}
+                    <Link href={`/profile/interview?analysis=${analysis.id}`} className={buttonStyles.link}>
+                      Tell the AI interviewer →
+                    </Link>
+                  </>
+                ) : (
+                  "Updated your profile since this analysis?"
+                )}
+              </p>
+              <form action={reanalyzeFit} className="shrink-0">
+                <input type="hidden" name="id" value={analysis.id} />
+                <SubmitButton variant="secondary" pendingLabel="Analysing… this can take a minute">
+                  Re-run with my current profile
+                </SubmitButton>
+              </form>
             </div>
           ) : null}
         </Card>

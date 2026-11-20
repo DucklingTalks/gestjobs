@@ -36,6 +36,7 @@ How to interview:
 - Never suggest answers, never flatter, never assess the candidate.
 - Write in the language the candidate uses; before they reply, use the language of the profile.
 - On the first turn, greet briefly, say in one sentence what the interview is for, and ask the first question.
+- If a <job_gaps> block is present, the interview is about one job: a fit analysis found those gaps between the profile and the posting. Go through the gaps that matter most and ask whether the candidate has related experience the profile does not mention (work, side projects, studies, volunteering). Accept "no" gracefully and move on; never push them to claim something. Ask about other qualities only once the gaps are covered.
 - Set "done" to true when you have enough material for several strengths (usually after 6-10 answers) or the candidate wants to stop; then thank them and tell them they can review the proposed strengths, without asking anything else.
 
 ${DATA_NOTE}
@@ -54,6 +55,7 @@ Rules:
 - context: the job title and company, or the project, it comes from, using the profile's names when the candidate referred to one; "" if unclear.
 - evidence: 1-3 sentences, factual, in the first person without "I" at the start, ready to adapt into a CV bullet (e.g. "Redesigned the route-matching algorithm from O(n^2) to O(n log n), cutting report time from 40 s to 3 s.").
 - Write in the language of the candidate's answers.
+- If a <job_gaps> block is present, put first the strengths whose evidence addresses those gaps, but never claim a gap is covered without evidence from the answers.
 - At most ${MAX_PROPOSED_STRENGTHS} strengths, most valuable first. An empty list is fine.
 
 ${DATA_NOTE}
@@ -81,8 +83,15 @@ const summarySchema = z.object({
     ),
 });
 
+/** A job whose fit analysis found gaps the interview should explore. */
+export type InterviewFocus = { jobTitle: string; company: string; gaps: string[] };
+
 /** Profile and transcript as sent to the AI, with the candidate's contact details redacted. */
-export function interviewPrompt(profile: Profile, transcript: InterviewMessage[]): string {
+export function interviewPrompt(
+  profile: Profile,
+  transcript: InterviewMessage[],
+  focus: InterviewFocus | null = null,
+): string {
   const lines = transcript.map((message) => {
     const content = message.role === "candidate" ? redactContacts(message.content).text : message.content;
     return `${message.role === "candidate" ? "Candidate" : "Interviewer"}: ${content}`;
@@ -91,6 +100,14 @@ export function interviewPrompt(profile: Profile, transcript: InterviewMessage[]
     "<candidate_profile>",
     JSON.stringify(profileForAi(profile), null, 2),
     "</candidate_profile>",
+    ...(focus && focus.gaps.length
+      ? [
+          "",
+          "<job_gaps>",
+          JSON.stringify({ job: [focus.jobTitle, focus.company].filter(Boolean).join(" at "), gaps: focus.gaps }, null, 2),
+          "</job_gaps>",
+        ]
+      : []),
     "",
     "<transcript>",
     lines.length ? lines.join("\n\n") : "(The interview has not started.)",
@@ -98,7 +115,11 @@ export function interviewPrompt(profile: Profile, transcript: InterviewMessage[]
   ].join("\n");
 }
 
-export async function interviewTurn(profile: Profile, transcript: InterviewMessage[]): Promise<AiResult<InterviewTurn>> {
+export async function interviewTurn(
+  profile: Profile,
+  transcript: InterviewMessage[],
+  focus: InterviewFocus | null = null,
+): Promise<AiResult<InterviewTurn>> {
   const answers = candidateAnswers(transcript);
   const limitNote =
     answers >= MAX_CANDIDATE_ANSWERS - 1
@@ -106,7 +127,7 @@ export async function interviewTurn(profile: Profile, transcript: InterviewMessa
       : "";
   const result = await generateJson({
     system: TURN_SYSTEM,
-    prompt: `${interviewPrompt(profile, transcript)}\n\nWrite the interviewer's next message.${limitNote}`,
+    prompt: `${interviewPrompt(profile, transcript, focus)}\n\nWrite the interviewer's next message.${limitNote}`,
     schema: turnSchema,
     maxTokens: 1_500,
   });
@@ -117,10 +138,11 @@ export async function interviewTurn(profile: Profile, transcript: InterviewMessa
 export async function summarizeInterview(
   profile: Profile,
   transcript: InterviewMessage[],
+  focus: InterviewFocus | null = null,
 ): Promise<AiResult<Strength[]>> {
   const result = await generateJson({
     system: SUMMARY_SYSTEM,
-    prompt: interviewPrompt(profile, transcript),
+    prompt: interviewPrompt(profile, transcript, focus),
     schema: summarySchema,
     maxTokens: 4_000,
   });
