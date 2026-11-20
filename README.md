@@ -51,9 +51,11 @@ Copy `.env.example` to `.env.local` and fill in real values. `.env.local` is git
 | `RESEND_FROM_EMAIL` | A verified Resend sender | Reminder email `from` |
 | `RESEND_REPLY_TO` | Optional. Your email address | Reminder email `reply-to` |
 | `CRON_SECRET` | `openssl rand -hex 32` | Auth gate for `POST /api/cron/reminders` |
-| `OPENCODE_API_KEY` | OpenCode → API keys | **Server only.** AI features (CV import, job fit, cover letter, tailored CV). Optional: without it those features show a notice |
-| `AI_BASE_URL` | Optional. Defaults to `https://opencode.ai/inference/go/anthropic` | Any Anthropic-Messages-compatible endpoint |
-| `AI_MODEL` | Optional. Defaults to `claude-haiku-5-5` | Model used for every AI call |
+| `AI_KEY_ENCRYPTION_SECRET` | `openssl rand -base64 48` | **Server only.** Encrypts the AI keys users save in Settings (min 32 chars). Changing it invalidates every saved key |
+| `OPENCODE_API_KEY` | OpenCode → API keys | **Server only.** Optional deployment key, used **only** by the emails in `AI_SHARED_KEY_EMAILS`. Everyone else brings their own key in Settings |
+| `AI_SHARED_KEY_EMAILS` | Comma-separated emails, e.g. yours | Optional. Who may use `OPENCODE_API_KEY` without adding a key |
+| `AI_BASE_URL` | Optional. Defaults to `https://opencode.ai/inference/go/anthropic` | Endpoint for the deployment key |
+| `AI_MODEL` | Optional. Defaults to `claude-haiku-5-5` | Model for the deployment key (user keys use `claude-haiku-5-5`) |
 
 > **Security:** never commit `.env.local` or real keys. Rotate leaked credentials immediately. Legacy `NEXT_PUBLIC_SUPABASE_ANON_KEY` / `SUPABASE_SERVICE_ROLE_KEY` are still read as a fallback when the new keys are unset. The secret key is only ever used in `src/app/api/cron/reminders/route.ts` and never crosses the client bundle.
 
