@@ -76,6 +76,38 @@ export function formatCvRange(
   return from || to;
 }
 
+export type CvLink = {
+  /** Printed text: "LinkedIn: linkedin.com/in/ana", or just the address. */
+  text: string;
+  /** Click target, or null when the URL is not a safe http(s) address. */
+  href: string | null;
+};
+
+/**
+ * Profile links as they appear in the CV header. The address stays visible
+ * (printed copies and some ATS parsers need it); only the protocol, "www."
+ * and a trailing slash are dropped to keep the line short.
+ */
+export function cvLinks(links: { label: string; url: string }[]): CvLink[] {
+  return links
+    .map(({ label, url }) => {
+      const raw = url.trim();
+      if (!raw) return null;
+      const absolute = /^[a-z][a-z\d+.-]*:/i.test(raw) ? raw : `https://${raw}`;
+      let href: string | null = null;
+      try {
+        const parsed = new URL(absolute);
+        if (parsed.protocol === "https:" || parsed.protocol === "http:") href = parsed.href;
+      } catch {
+        href = null;
+      }
+      const address = raw.replace(/^https?:\/\//i, "").replace(/^www\./i, "").replace(/\/+$/, "");
+      const name = label.trim();
+      return { text: name ? `${name}: ${address}` : address, href };
+    })
+    .filter((link): link is CvLink => link !== null);
+}
+
 /** "Title, Field" style degree line without dangling separators. */
 export function joinParts(parts: Array<string | undefined>, separator = ", "): string {
   return parts.map((part) => part?.trim()).filter(Boolean).join(separator);

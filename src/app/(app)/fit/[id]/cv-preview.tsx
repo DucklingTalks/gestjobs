@@ -1,5 +1,5 @@
 import type { TailoredCv } from "@/lib/ai/fit";
-import { cvLabels, formatCvRange, joinParts } from "@/lib/cv/format";
+import { cvLabels, cvLinks, formatCvRange, joinParts } from "@/lib/cv/format";
 
 export type CvContact = {
   fullName: string;
@@ -12,9 +12,8 @@ export type CvContact = {
 /** On-screen rendering of the tailored CV, mirroring the PDF layout. */
 export function CvPreview({ cv, contact, language }: { cv: TailoredCv; contact: CvContact; language: string }) {
   const labels = cvLabels(language);
-  const contactLine = [contact.location, contact.email, contact.phone, ...contact.links.map((l) => l.url)]
-    .filter(Boolean)
-    .join(" · ");
+  const contactLine = [contact.location, contact.email, contact.phone].filter(Boolean).join(" · ");
+  const links = cvLinks(contact.links);
 
   const heading = (text: string) => (
     <h3 className="mt-5 border-b border-slate-300 pb-1 text-xs font-bold uppercase tracking-wider text-slate-800">
@@ -28,6 +27,27 @@ export function CvPreview({ cv, contact, language }: { cv: TailoredCv; contact: 
         <h2 className="text-xl font-bold text-slate-900">{contact.fullName || "Your name"}</h2>
         {cv.headline ? <p className="mt-0.5 font-medium text-slate-700">{cv.headline}</p> : null}
         {contactLine ? <p className="mt-1 break-words text-xs text-slate-600">{contactLine}</p> : null}
+        {links.length ? (
+          <p className="mt-0.5 break-words text-xs text-slate-600">
+            {links.map((link, index) => (
+              <span key={index}>
+                {index > 0 ? " · " : null}
+                {link.href ? (
+                  <a
+                    href={link.href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="underline decoration-slate-300 underline-offset-2 hover:text-slate-900 hover:decoration-slate-500"
+                  >
+                    {link.text}
+                  </a>
+                ) : (
+                  link.text
+                )}
+              </span>
+            ))}
+          </p>
+        ) : null}
       </header>
 
       {cv.summary ? (

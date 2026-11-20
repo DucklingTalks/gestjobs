@@ -4,6 +4,7 @@ import { extractText, getDocumentProxy } from "unpdf";
 import { describe, expect, it } from "vitest";
 
 import { tailoredCvSchema } from "@/lib/ai/fit";
+import { cvLinks } from "@/lib/cv/format";
 import { cvFileName, renderCvPdf } from "@/lib/cv/pdf";
 
 const cv = tailoredCvSchema.parse({
@@ -43,7 +44,11 @@ const contact = {
   email: "ana@example.com",
   phone: "+598 99 123 456",
   location: "Montevideo, Uruguay",
-  links: [{ label: "LinkedIn", url: "https://linkedin.com/in/anaperez" }],
+  links: [
+    { label: "LinkedIn", url: "https://www.linkedin.com/in/anaperez/" },
+    { label: "GitHub", url: "github.com/anaperez" },
+    { label: "Portfolio", url: "https://anaperez.dev/" },
+  ],
 };
 
 describe("renderCvPdf (ATS readability)", () => {
@@ -84,8 +89,46 @@ describe("renderCvPdf (ATS readability)", () => {
     expect(text).not.toContain("🚀");
   });
 
+  it("prints each link with its label and makes it clickable", async () => {
+    const bytes = await renderCvPdf({ cv, contact, language: "es", jobTitle: "Frontend Lead" });
+    const pdf = await getDocumentProxy(new Uint8Array(bytes));
+    const { text } = await extractText(pdf, { mergePages: true });
+
+    expect(text).toContain("LinkedIn: linkedin.com/in/anaperez");
+    expect(text).toContain("GitHub: github.com/anaperez");
+    expect(text).toContain("Portfolio: anaperez.dev");
+
+    const annotations = await (await pdf.getPage(1)).getAnnotations();
+    const urls = annotations.filter((a) => a.subtype === "Link").map((a) => a.url);
+    expect(urls).toEqual([
+      "https://www.linkedin.com/in/anaperez/",
+      "https://github.com/anaperez",
+      "https://anaperez.dev/",
+    ]);
+  });
+
   it("builds a safe file name", () => {
     expect(cvFileName("Ana Pérez", "Frontend / Lead")).toBe("Ana Perez - Frontend Lead - CV.pdf");
     expect(cvFileName("", "")).toBe("CV.pdf");
+  });
+});
+
+describe("cvLinks", () => {
+  it("keeps the address visible and drops protocol, www and trailing slash", () => {
+    expect(cvLinks([{ label: "LinkedIn", url: "https://www.linkedin.com/in/ana/" }])).toEqual([
+      { text: "LinkedIn: linkedin.com/in/ana", href: "https://www.linkedin.com/in/ana/" },
+    ]);
+  });
+
+  it("falls back to the address when there is no label and skips blank URLs", () => {
+    expect(cvLinks([{ label: "", url: "ana.dev" }, { label: "Empty", url: "  " }])).toEqual([
+      { text: "ana.dev", href: "https://ana.dev/" },
+    ]);
+  });
+
+  it("never links non-http schemes", () => {
+    expect(cvLinks([{ label: "Bad", url: "javascript:alert(1)" }])).toEqual([
+      { text: "Bad: javascript:alert(1)", href: null },
+    ]);
   });
 });
