@@ -8,7 +8,7 @@ import {
 } from "@/lib/validation/interview";
 import { strengthSchema, type Profile, type Strength } from "@/lib/validation/profile";
 
-import { generateJson, type AiResult } from "./client";
+import { generateJson, type AiConfig, type AiResult } from "./client";
 import { profileForAi } from "./fit";
 import { redactContacts } from "./redact";
 
@@ -116,6 +116,7 @@ export function interviewPrompt(
 }
 
 export async function interviewTurn(
+  ai: AiConfig,
   profile: Profile,
   transcript: InterviewMessage[],
   focus: InterviewFocus | null = null,
@@ -126,6 +127,7 @@ export async function interviewTurn(
       ? "\n\nThis is the last turn: set done to true and close the interview."
       : "";
   const result = await generateJson({
+    ai,
     system: TURN_SYSTEM,
     prompt: `${interviewPrompt(profile, transcript, focus)}\n\nWrite the interviewer's next message.${limitNote}`,
     schema: turnSchema,
@@ -136,11 +138,13 @@ export async function interviewTurn(
 }
 
 export async function summarizeInterview(
+  ai: AiConfig,
   profile: Profile,
   transcript: InterviewMessage[],
   focus: InterviewFocus | null = null,
 ): Promise<AiResult<Strength[]>> {
   const result = await generateJson({
+    ai,
     system: SUMMARY_SYSTEM,
     prompt: interviewPrompt(profile, transcript, focus),
     schema: summarySchema,

@@ -1,9 +1,10 @@
 "use client";
 
 import { startTransition, useActionState, useState } from "react";
+import Link from "next/link";
 
 import { SubmitButton } from "@/components/form-buttons";
-import { Alert, Card, fieldClass, labelClass } from "@/components/ui";
+import { Alert, buttonStyles, Card, fieldClass, labelClass } from "@/components/ui";
 
 import { runFitAnalysis, type FitFormState } from "./actions";
 
@@ -20,7 +21,12 @@ export function FitForm({ disabledReason }: { disabledReason: string | null }) {
       description="Paste the description, or a link to it. You get a 1–10 fit score, a short cover letter and a CV tailored to the role, written in the posting's language."
     >
       {disabledReason ? (
-        <Alert tone="error">{disabledReason}</Alert>
+        <Alert tone="error">
+          {disabledReason}{" "}
+          <Link href="/settings" className={buttonStyles.link}>
+            Go to Settings
+          </Link>
+        </Alert>
       ) : (
         <form
           onSubmit={(event) => {

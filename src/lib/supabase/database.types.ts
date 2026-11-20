@@ -294,6 +294,26 @@ export interface Database {
         Update: Partial<Database["public"]["Tables"]["profiles"]["Insert"]>;
         Relationships: [];
       };
+      ai_credentials: {
+        Row: {
+          user_id: string;
+          provider: string;
+          encrypted_key: string;
+          key_hint: string;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          user_id: string;
+          provider: string;
+          encrypted_key: string;
+          key_hint?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["ai_credentials"]["Insert"]>;
+        Relationships: [];
+      };
       fit_analyses: {
         Row: {
           id: string;

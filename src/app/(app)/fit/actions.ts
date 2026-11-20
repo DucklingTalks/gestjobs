@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 
-import { aiModel, isAiConfigured } from "@/lib/ai/client";
+import { resolveAi } from "@/lib/ai/access";
 import { extractDocumentText } from "@/lib/ai/documents";
 import { analyzeFit, finalizeCoverLetter, writeFitDocuments, type FitDocuments } from "@/lib/ai/fit";
 import { parseStoredKeywords, toStoredKeywords } from "@/lib/ats/cv";
@@ -21,12 +21,12 @@ type CreateResult = { ok: true; id: string } | { ok: false; error: string };
 
 async function createAnalysis(
   supabase: Supabase,
-  userId: string,
+  user: { id: string; email?: string | null },
   job: { text: string; sourceUrl: string | null; title: string; company: string; applicationId: string | null },
 ): Promise<CreateResult> {
-  if (!isAiConfigured()) {
-    return { ok: false, error: "AI is not configured. Add OPENCODE_API_KEY to the environment." };
-  }
+  const userId = user.id;
+  const access = await resolveAi(supabase, { id: user.id, email: user.email ?? undefined });
+  if (!access.ok) return { ok: false, error: access.error };
 
   const { data: row, error: profileError } = await supabase
     .from("profiles")
@@ -47,7 +47,7 @@ async function createAnalysis(
     return { ok: false, error: "The job posting is too short to analyse. Paste the full description." };
   }
 
-  const [result, personal] = await Promise.all([analyzeFit(profile, job.text), loadPersonalAliases(supabase, userId)]);
+  const [result, personal] = await Promise.all([analyzeFit(access.config, profile, job.text), loadPersonalAliases(supabase, userId)]);
   if (!result.ok) return result;
 
   const fit = result.data;
@@ -69,7 +69,7 @@ async function createAnalysis(
       cover_letter: finalizeCoverLetter(fit.coverLetter, profile.fullName),
       cv: fit.cv,
       keywords,
-      model: aiModel(),
+      model: access.config.model,
     })
     .select("id")
     .single();
@@ -105,7 +105,7 @@ export async function runFitAnalysis(_prev: FitFormState, formData: FormData): P
     job = { text: posting.text, sourceUrl: url, title: posting.title, company: posting.company };
   }
 
-  const result = await createAnalysis(supabase, user.id, { ...job, applicationId: null });
+  const result = await createAnalysis(supabase, user, { ...job, applicationId: null });
   if (!result.ok) return { error: result.error };
 
   revalidatePath("/fit");
@@ -164,7 +164,7 @@ export async function analyzeApplication(formData: FormData) {
   }
 
   const header = `${application.position_title} — ${application.company_name}`;
-  const result = await createAnalysis(supabase, user.id, {
+  const result = await createAnalysis(supabase, user, {
     text: text.startsWith(header) ? text : `${header}\n\n${text}`,
     sourceUrl,
     title: application.position_title,
@@ -201,7 +201,7 @@ export async function reanalyzeFit(formData: FormData) {
     .maybeSingle();
   if (!analysis) redirect("/fit");
 
-  const result = await createAnalysis(supabase, user.id, {
+  const result = await createAnalysis(supabase, user, {
     text: analysis.job_text,
     sourceUrl: analysis.job_source_url,
     title: analysis.job_title,
@@ -225,8 +225,6 @@ export async function generateFitDocuments(formData: FormData) {
   if (!idSchema.safeParse(id).success) redirect("/fit");
   const back = (message: string): never => redirect(`/fit/${id}?error=${encodeURIComponent(message)}`);
 
-  if (!isAiConfigured()) back("AI is not configured. Add OPENCODE_API_KEY to the environment.");
-
   const supabase = await createClient();
   const {
     data: { user },
@@ -246,8 +244,12 @@ export async function generateFitDocuments(formData: FormData) {
   // Already written (e.g. a double submit): nothing to pay for.
   if (analysis.cover_letter.trim()) redirect(`/fit/${id}`);
 
+  const access = await resolveAi(supabase, user);
+  if (!access.ok) back(access.error);
+  const ai = (access as Extract<typeof access, { ok: true }>).config;
+
   const profile = profileFromRow(profileRow);
-  const result = await writeFitDocuments(profile, analysis.job_text, analysis);
+  const result = await writeFitDocuments(ai, profile, analysis.job_text, analysis);
   if (!result.ok) back(result.error);
   const documents = (result as { ok: true; data: FitDocuments }).data;
 

@@ -69,7 +69,9 @@ The lockfile is the source of truth; CI enforces `--frozen-lockfile` so local in
 | `RESEND_FROM_EMAIL` | `GestJobs <noreply@your-domain.com>` | A verified Resend sender |
 | `RESEND_REPLY_TO` | `you@example.com` | Your personal email *(optional)* |
 | `CRON_SECRET` | `a1b2...` *(64 hex chars)* | `openssl rand -hex 32` |
-| `OPENCODE_API_KEY` | `sk-...` | OpenCode → API keys *(optional; enables the AI features)* |
+| `AI_KEY_ENCRYPTION_SECRET` | `openssl rand -base64 48` | Encrypts the AI keys users save in Settings *(needed to save a key)* |
+| `OPENCODE_API_KEY` | `sk-...` | Optional deployment key, only for the emails in `AI_SHARED_KEY_EMAILS` |
+| `AI_SHARED_KEY_EMAILS` | `you@example.com` | Emails allowed to use `OPENCODE_API_KEY` without their own key |
 | `AI_BASE_URL` | `https://opencode.ai/inference/go/anthropic` | Optional override (e.g. Zen: `https://opencode.ai/inference/anthropic`) |
 | `AI_MODEL` | `claude-haiku-5-5` | Optional override |
 
@@ -328,7 +330,8 @@ In production the route is triggered by an **external cron service** (e.g. cron-
 | Magic link never arrives | Site URL mismatch in Supabase Auth | Set Auth → URL Configuration → Site URL to `http://localhost:3000` |
 | 401 on server actions | Missing Supabase URL/key or unauthenticated session | Verify `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, and the active login session |
 | Login shows "We couldn't reach the sign-in service" | Supabase project paused/deleted or wrong URL (DNS fails) | Restore the project in the Supabase dashboard and check `NEXT_PUBLIC_SUPABASE_URL` |
-| AI features show "AI is not configured" | `OPENCODE_API_KEY` missing | Add it to `.env.local` and restart `pnpm dev` |
+| AI features say "Add your AI API key in Settings" | No saved key, and your email isn't in `AI_SHARED_KEY_EMAILS` | Add a key in **Settings**, or add your email to `AI_SHARED_KEY_EMAILS` and restart `pnpm dev` |
+| Settings says "missing AI_KEY_ENCRYPTION_SECRET" | Secret unset or under 32 characters | Set it in `.env.local` and restart `pnpm dev` |
 | AI calls fail with "rejected the API key" or "not found" | Wrong key, `AI_BASE_URL` or `AI_MODEL` | Check them against your OpenCode plan's endpoint and model list |
 | Cron returns 503 | `CRON_SECRET` or `SUPABASE_SECRET_KEY` missing | Check `.env.local` and restart `pnpm dev` |
 | Cron returns 0 sent but dashboard shows reminders | Resend env missing or invalid | Verify `RESEND_API_KEY` and `RESEND_FROM_EMAIL` are set and the sender domain is verified |

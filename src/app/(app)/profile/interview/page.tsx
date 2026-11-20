@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 
 import { Alert, buttonStyles, PageHeader, PageShell } from "@/components/ui";
-import { isAiConfigured } from "@/lib/ai/client";
+import { resolveAi } from "@/lib/ai/access";
 import { createClient } from "@/lib/supabase/server";
 
 import { InterviewChat } from "./interview-chat";
@@ -34,6 +34,7 @@ export default async function ProfileInterviewPage({
         .maybeSingle()
     : { data: null };
   const focus = analysis?.gaps.length ? analysis : null;
+  const access = await resolveAi(supabase, user);
   const jobName = focus ? [focus.job_title, focus.company].filter(Boolean).join(" at ") || "this job" : "";
 
   return (
@@ -57,13 +58,13 @@ export default async function ProfileInterviewPage({
           </ul>
         </details>
       ) : null}
-      {isAiConfigured() ? (
+      {access.ok ? (
         <InterviewChat analysisId={focus?.id} />
       ) : (
         <Alert tone="error">
-          AI is not configured. Add OPENCODE_API_KEY to the environment.{" "}
-          <Link href="/profile" className={buttonStyles.link}>
-            Back to your profile
+          {access.error}{" "}
+          <Link href="/settings" className={buttonStyles.link}>
+            Go to Settings
           </Link>
         </Alert>
       )}

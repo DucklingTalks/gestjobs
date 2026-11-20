@@ -431,7 +431,7 @@ export function ProfileForm({ initial, aiEnabled }: { initial: Profile; aiEnable
                 <p className="text-sm text-slate-500">
                   {aiEnabled
                     ? "No strengths yet. Add them by hand, or let the AI interview you to find experience your profile is missing. Save your profile first if you have unsaved changes."
-                    : "No strengths yet."}
+                    : "No strengths yet. Add them by hand, or add your AI key in Settings to be interviewed by AI."}
                 </p>
               ) : null}
               {profile.strengths.map((item, index) => (

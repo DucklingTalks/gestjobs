@@ -1,9 +1,10 @@
 "use client";
 
 import { useActionState, useEffect, useRef } from "react";
+import Link from "next/link";
 
 import { SubmitButton } from "@/components/form-buttons";
-import { Alert, Card } from "@/components/ui";
+import { Alert, buttonStyles, Card } from "@/components/ui";
 import type { Profile } from "@/lib/validation/profile";
 
 import { importResume, type ImportResumeState } from "./actions";
@@ -60,7 +61,10 @@ export function ImportResume({
     >
       {!aiEnabled ? (
         <Alert tone="error">
-          AI is not configured yet. Add OPENCODE_API_KEY to the environment to enable imports.
+          Add your AI API key to import a CV.{" "}
+          <Link href="/settings" className={buttonStyles.link}>
+            Go to Settings
+          </Link>
         </Alert>
       ) : (
         <form

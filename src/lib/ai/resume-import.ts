@@ -1,6 +1,6 @@
 import { compactProfile, profileSchema, type Profile } from "@/lib/validation/profile";
 
-import { generateJson, type AiResult } from "./client";
+import { generateJson, type AiConfig, type AiResult } from "./client";
 import { labelForUrl, normalizeUrl, redactContacts } from "./redact";
 
 const SYSTEM = `You convert the text of a CV/resume into structured JSON for a job-application tracker.
@@ -30,10 +30,11 @@ Reply with only one JSON object, no prose, with exactly these keys:
  * Parse CV text into a Profile. Contact details are redacted before the
  * request and merged back afterwards.
  */
-export async function importResumeText(rawText: string): Promise<AiResult<Profile>> {
+export async function importResumeText(ai: AiConfig, rawText: string): Promise<AiResult<Profile>> {
   const { text, contacts } = redactContacts(rawText);
 
   const result = await generateJson({
+    ai,
     system: SYSTEM,
     prompt: `<cv>\n${text}\n</cv>`,
     schema: profileSchema,

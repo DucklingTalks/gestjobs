@@ -52,7 +52,13 @@ const FIT_MESSAGES: Record<string, string> = {
   "strengths-added": "Strengths added to your profile. Re-run the analysis to use them.",
 };
 
+const SETTINGS_MESSAGES: Record<string, string> = {
+  "key-saved": "API key verified and saved.",
+  "key-removed": "API key removed.",
+};
+
 const MESSAGES_BY_PATH: Array<[prefix: string, table: Record<string, string>]> = [
+  ["/settings", SETTINGS_MESSAGES],
   ["/contacts", CONTACT_MESSAGES],
   ["/profile", PROFILE_MESSAGES],
   ["/fit", FIT_MESSAGES],

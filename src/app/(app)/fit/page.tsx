@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 
 import { FitScoreBadge } from "@/components/fit-score";
 import { Alert, buttonStyles, Card, EmptyState, formatRelative, PageHeader, PageShell } from "@/components/ui";
-import { isAiConfigured } from "@/lib/ai/client";
+import { resolveAi } from "@/lib/ai/access";
 import { createClient } from "@/lib/supabase/server";
 import { isProfileUsable, PROFILE_COLUMNS, profileFromRow } from "@/lib/validation/profile";
 
@@ -34,9 +34,8 @@ export default async function FitPage() {
   ]);
 
   const profileReady = isProfileUsable(profileFromRow(profileRow));
-  const disabledReason = !isAiConfigured()
-    ? "AI is not configured yet. Add OPENCODE_API_KEY to the environment."
-    : null;
+  const access = await resolveAi(supabase, user);
+  const disabledReason = access.ok ? null : access.error;
 
   return (
     <PageShell width="4xl">
