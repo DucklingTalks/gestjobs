@@ -6,7 +6,7 @@ import { FitScoreBadge } from "@/components/fit-score";
 import { Alert, buttonStyles, Card, EmptyState, formatRelative, PageHeader, PageShell } from "@/components/ui";
 import { isAiConfigured } from "@/lib/ai/client";
 import { createClient } from "@/lib/supabase/server";
-import { isProfileUsable, profileFromRow } from "@/lib/validation/profile";
+import { isProfileUsable, PROFILE_COLUMNS, profileFromRow } from "@/lib/validation/profile";
 
 import { FitForm } from "./fit-form";
 
@@ -22,7 +22,7 @@ export default async function FitPage() {
   const [{ data: profileRow }, { data: analyses, error }] = await Promise.all([
     supabase
       .from("profiles")
-      .select("full_name, headline, email, phone, location, bio, skills, links, languages, experiences, education, certifications")
+      .select(PROFILE_COLUMNS)
       .eq("user_id", user.id)
       .maybeSingle(),
     supabase

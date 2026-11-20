@@ -52,6 +52,24 @@ export const certificationSchema = z.object({
   year: text(10),
 });
 
+export const STRENGTH_KINDS = ["technical", "soft"] as const;
+
+/**
+ * A quality the candidate confirmed, with the concrete example that shows it
+ * (e.g. "Algorithmic thinking" + the story). `context` names the job or
+ * project it comes from, so the CV can place it under that experience.
+ */
+export const strengthSchema = z.object({
+  name: text(80),
+  kind: z.enum(STRENGTH_KINDS).catch("technical").default("technical"),
+  context: text(160),
+  evidence: text(1000),
+});
+
+export type Strength = z.infer<typeof strengthSchema>;
+
+export const MAX_STRENGTHS = 30;
+
 export const profileSchema = z.object({
   fullName: text(120),
   headline: text(160),
@@ -65,6 +83,7 @@ export const profileSchema = z.object({
   experiences: z.array(experienceSchema).max(30).default([]),
   education: z.array(educationSchema).max(15).default([]),
   certifications: z.array(certificationSchema).max(30).default([]),
+  strengths: z.array(strengthSchema).max(MAX_STRENGTHS).default([]),
 });
 
 export type Profile = z.infer<typeof profileSchema>;
@@ -85,6 +104,7 @@ export function compactProfile(profile: Profile): Profile {
     experiences: profile.experiences.filter(filled),
     education: profile.education.filter(filled),
     certifications: profile.certifications.filter(filled),
+    strengths: profile.strengths.filter((strength) => strength.name !== ""),
   };
 }
 
@@ -108,7 +128,12 @@ type ProfileRow = {
   experiences: unknown;
   education: unknown;
   certifications: unknown;
+  strengths?: unknown;
 };
+
+/** Columns that `profileFromRow` reads. */
+export const PROFILE_COLUMNS =
+  "full_name, headline, email, phone, location, bio, skills, links, languages, experiences, education, certifications, strengths";
 
 /** Map a `profiles` row to the app shape, tolerating malformed jsonb. */
 export function profileFromRow(row: ProfileRow | null): Profile {
@@ -126,6 +151,7 @@ export function profileFromRow(row: ProfileRow | null): Profile {
     experiences: row.experiences ?? [],
     education: row.education ?? [],
     certifications: row.certifications ?? [],
+    strengths: row.strengths ?? [],
   });
   return parsed.success ? parsed.data : emptyProfile;
 }
@@ -144,5 +170,6 @@ export function profileToRow(profile: Profile) {
     experiences: profile.experiences,
     education: profile.education,
     certifications: profile.certifications,
+    strengths: profile.strengths,
   };
 }

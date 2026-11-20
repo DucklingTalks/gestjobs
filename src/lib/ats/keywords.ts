@@ -58,6 +58,7 @@ export function profileEvidence(profile: Profile): ProfileEvidence {
       ...profile.experiences.flatMap((job) => [job.title, job.description]),
       ...profile.education.flatMap((item) => [item.degree, item.field, item.description]),
       ...profile.certifications.map((cert) => cert.issuer),
+      ...profile.strengths.flatMap((strength) => [strength.name, strength.evidence]),
     ]
       .filter(Boolean)
       .join("\n"),

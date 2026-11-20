@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { Alert, PageHeader, PageShell } from "@/components/ui";
 import { isAiConfigured } from "@/lib/ai/client";
 import { createClient } from "@/lib/supabase/server";
-import { profileFromRow } from "@/lib/validation/profile";
+import { PROFILE_COLUMNS, profileFromRow } from "@/lib/validation/profile";
 
 import { SkillAliases } from "./aliases";
 import { ProfileForm } from "./profile-form";
@@ -21,9 +21,7 @@ export default async function ProfilePage() {
   const [{ data, error }, { data: aliases }] = await Promise.all([
     supabase
       .from("profiles")
-      .select(
-        "full_name, headline, email, phone, location, bio, skills, links, languages, experiences, education, certifications, updated_at",
-      )
+      .select(PROFILE_COLUMNS)
       .eq("user_id", user.id)
       .maybeSingle(),
     supabase

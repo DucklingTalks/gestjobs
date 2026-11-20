@@ -11,12 +11,9 @@ import { parseStoredKeywords, toStoredKeywords } from "@/lib/ats/cv";
 import { findEvidence, matchKeywords, profileEvidence, type PersonalAlias } from "@/lib/ats/keywords";
 import { fetchJobPosting } from "@/lib/jobs/fetch-posting";
 import { createClient } from "@/lib/supabase/server";
-import { isProfileUsable, profileFromRow } from "@/lib/validation/profile";
+import { isProfileUsable, PROFILE_COLUMNS, profileFromRow } from "@/lib/validation/profile";
 
 type Supabase = Awaited<ReturnType<typeof createClient>>;
-
-const PROFILE_COLUMNS =
-  "full_name, headline, email, phone, location, bio, skills, links, languages, experiences, education, certifications";
 
 const MIN_JOB_TEXT = 120;
 
