@@ -80,6 +80,16 @@ describe("interviewPrompt", () => {
     expect(prompt).toContain("[email]");
   });
 
+  it("adds the job gaps only when the interview is about a job with gaps", () => {
+    const profile = profileSchema.parse({});
+    const focused = interviewPrompt(profile, [], { jobTitle: "Backend Engineer", company: "Acme", gaps: ["No Go experience"] });
+    expect(focused).toContain("<job_gaps>");
+    expect(focused).toContain("Backend Engineer at Acme");
+    expect(focused).toContain("No Go experience");
+    expect(interviewPrompt(profile, [], { jobTitle: "X", company: "", gaps: [] })).not.toContain("<job_gaps>");
+    expect(interviewPrompt(profile, [])).not.toContain("<job_gaps>");
+  });
+
   it("marks an interview that has not started", () => {
     expect(interviewPrompt(profileSchema.parse({}), [])).toContain("(The interview has not started.)");
   });

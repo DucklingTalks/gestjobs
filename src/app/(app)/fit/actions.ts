@@ -178,6 +178,44 @@ export async function analyzeApplication(formData: FormData) {
 }
 
 /**
+ * Analyse the same posting again with the current profile, e.g. after the
+ * gap interview added strengths. The new analysis is kept alongside the old
+ * one, linked to the same application.
+ */
+export async function reanalyzeFit(formData: FormData) {
+  const id = String(formData.get("id") ?? "");
+  if (!idSchema.safeParse(id).success) redirect("/fit");
+  const back = (message: string): never => redirect(`/fit/${id}?error=${encodeURIComponent(message)}`);
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect("/login");
+
+  const { data: analysis } = await supabase
+    .from("fit_analyses")
+    .select("id, application_id, job_title, company, job_source_url, job_text")
+    .eq("id", id)
+    .eq("user_id", user.id)
+    .maybeSingle();
+  if (!analysis) redirect("/fit");
+
+  const result = await createAnalysis(supabase, user.id, {
+    text: analysis.job_text,
+    sourceUrl: analysis.job_source_url,
+    title: analysis.job_title,
+    company: analysis.company,
+    applicationId: analysis.application_id,
+  });
+  if (!result.ok) back(result.error);
+
+  revalidatePath("/fit");
+  if (analysis.application_id) revalidatePath(`/applications/${analysis.application_id}`);
+  redirect(`/fit/${(result as { id: string }).id}?status=analysed`);
+}
+
+/**
  * Write the cover letter and CV for a low-fit analysis, when the candidate
  * decides to apply anyway. This is the only extra AI call; good fits get
  * their documents in the analysis call itself.

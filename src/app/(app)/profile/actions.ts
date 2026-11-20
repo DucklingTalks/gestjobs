@@ -6,7 +6,13 @@ import { z } from "zod";
 
 import { isAiConfigured } from "@/lib/ai/client";
 import { extractDocumentText } from "@/lib/ai/documents";
-import { interviewTurn, mergeStrengths, summarizeInterview, type InterviewTurn } from "@/lib/ai/interview";
+import {
+  interviewTurn,
+  mergeStrengths,
+  summarizeInterview,
+  type InterviewFocus,
+  type InterviewTurn,
+} from "@/lib/ai/interview";
 import { importResumeText } from "@/lib/ai/resume-import";
 import { createClient } from "@/lib/supabase/server";
 import { candidateAnswers, MIN_ANSWERS_TO_SUMMARIZE, transcriptSchema } from "@/lib/validation/interview";
@@ -138,10 +144,27 @@ async function loadProfile(supabase: Supabase, userId: string) {
   return { profile: profileFromRow(data), exists: Boolean(data), error };
 }
 
+/**
+ * The gaps of one of the user's analyses, when the interview is about that
+ * job. Loaded on the server so the client cannot inject its own "gaps".
+ */
+async function loadFocus(supabase: Supabase, userId: string, analysisId: unknown): Promise<InterviewFocus | null> {
+  const id = z.string().uuid().safeParse(analysisId);
+  if (!id.success) return null;
+  const { data } = await supabase
+    .from("fit_analyses")
+    .select("job_title, company, gaps")
+    .eq("id", id.data)
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (!data?.gaps.length) return null;
+  return { jobTitle: data.job_title, company: data.company, gaps: data.gaps };
+}
+
 export type InterviewTurnResult = { ok: true; turn: InterviewTurn } | { ok: false; error: string };
 
 /** Next interviewer message. The client owns the transcript and sends it whole. */
-export async function nextInterviewTurn(transcript: unknown): Promise<InterviewTurnResult> {
+export async function nextInterviewTurn(transcript: unknown, analysisId?: string): Promise<InterviewTurnResult> {
   const supabase = await createClient();
   const user = await requireUser(supabase);
   if (!isAiConfigured()) return { ok: false, error: "AI is not configured. Add OPENCODE_API_KEY to the environment." };
@@ -152,14 +175,15 @@ export async function nextInterviewTurn(transcript: unknown): Promise<InterviewT
   const { profile, error } = await loadProfile(supabase, user.id);
   if (error) return { ok: false, error: "Unable to load your profile." };
 
-  const result = await interviewTurn(profile, parsed.data);
+  const focus = await loadFocus(supabase, user.id, analysisId);
+  const result = await interviewTurn(profile, parsed.data, focus);
   return result.ok ? { ok: true, turn: result.data } : result;
 }
 
 export type InterviewSummaryResult = { ok: true; strengths: Strength[] } | { ok: false; error: string };
 
 /** Strengths proposed from the conversation. Nothing is saved here. */
-export async function proposeStrengths(transcript: unknown): Promise<InterviewSummaryResult> {
+export async function proposeStrengths(transcript: unknown, analysisId?: string): Promise<InterviewSummaryResult> {
   const supabase = await createClient();
   const user = await requireUser(supabase);
   if (!isAiConfigured()) return { ok: false, error: "AI is not configured. Add OPENCODE_API_KEY to the environment." };
@@ -173,7 +197,8 @@ export async function proposeStrengths(transcript: unknown): Promise<InterviewSu
   const { profile, error } = await loadProfile(supabase, user.id);
   if (error) return { ok: false, error: "Unable to load your profile." };
 
-  const result = await summarizeInterview(profile, parsed.data);
+  const focus = await loadFocus(supabase, user.id, analysisId);
+  const result = await summarizeInterview(profile, parsed.data, focus);
   return result.ok ? { ok: true, strengths: result.data } : result;
 }
 
