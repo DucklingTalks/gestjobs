@@ -1,8 +1,8 @@
-import { PDFDocument, rgb, StandardFonts, type PDFFont, type PDFPage } from "pdf-lib";
+import { PDFDocument, PDFString, rgb, StandardFonts, type PDFFont, type PDFPage } from "pdf-lib";
 
 import type { TailoredCv } from "@/lib/ai/fit";
 
-import { cvLabels, formatCvRange, joinParts } from "./format";
+import { cvLabels, cvLinks, formatCvRange, joinParts, type CvLink } from "./format";
 
 /**
  * ATS-friendly CV PDF.
@@ -164,6 +164,62 @@ class Writer {
     this.y -= 6;
   }
 
+  /**
+   * Lay out links inline ("A | B | C"), wrapping between links, and put a
+   * clickable URI annotation over each one that has a safe href.
+   */
+  links(items: CvLink[], { size = 9.5, color = COLORS.muted, lineGap = 3.2, after = 1 } = {}) {
+    const font = this.regular;
+    const separator = " | ";
+    const sepWidth = font.widthOfTextAtSize(separator, size);
+    let x = MARGIN.x;
+    let lineStarted = false;
+
+    const newLine = () => {
+      this.y -= lineGap;
+      this.ensure(size + lineGap);
+      this.y -= size;
+      x = MARGIN.x;
+      lineStarted = false;
+    };
+
+    const values = items.map((item) => ({ text: this.clean(item.text), href: item.href })).filter((v) => v.text);
+    if (!values.length) return;
+
+    this.ensure(size + lineGap);
+    this.y -= size;
+    for (const { text, href } of values) {
+      const width = font.widthOfTextAtSize(text, size);
+      if (lineStarted && x + sepWidth + width > MARGIN.x + this.width) newLine();
+      if (lineStarted) {
+        this.page.drawText(separator, { x, y: this.y, size, font, color });
+        x += sepWidth;
+      }
+      // A single link longer than the line is split across lines.
+      const pieces = width > this.width ? this.wrap(text, font, size, this.width) : [text];
+      pieces.forEach((piece, index) => {
+        if (index > 0) newLine();
+        const pieceWidth = font.widthOfTextAtSize(piece, size);
+        this.page.drawText(piece, { x, y: this.y, size, font, color });
+        if (href) this.annotateLink(href, x, this.y - size * 0.22, pieceWidth, size * 1.15);
+        x += pieceWidth;
+        lineStarted = true;
+      });
+    }
+    this.y -= lineGap + after;
+  }
+
+  private annotateLink(href: string, x: number, y: number, width: number, height: number) {
+    const annotation = this.doc.context.obj({
+      Type: "Annot",
+      Subtype: "Link",
+      Rect: [x, y, x + width, y + height],
+      Border: [0, 0, 0],
+      A: { Type: "Action", S: "URI", URI: PDFString.of(href) },
+    });
+    this.page.node.addAnnot(this.doc.context.register(annotation));
+  }
+
   space(points: number) {
     this.y -= points;
   }
@@ -200,8 +256,7 @@ export async function renderCvPdf({
   if (cv.headline) w.text(cv.headline, { size: 11.5, color: COLORS.muted, after: 3 });
   const contactLine = [contact.location, contact.email, contact.phone].filter(Boolean).join(" | ");
   if (contactLine) w.text(contactLine, { size: 9.5, color: COLORS.muted, after: 1 });
-  const links = contact.links.map((link) => link.url).filter(Boolean).join(" | ");
-  if (links) w.text(links, { size: 9.5, color: COLORS.muted, after: 1 });
+  w.links(cvLinks(contact.links));
 
   if (cv.summary) {
     w.heading(labels.summary);
