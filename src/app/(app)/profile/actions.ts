@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 
-import { isAiConfigured } from "@/lib/ai/client";
+import { resolveAi } from "@/lib/ai/access";
 import { extractDocumentText } from "@/lib/ai/documents";
 import {
   interviewTurn,
@@ -103,7 +103,10 @@ export async function importResume(
   const extracted = await extractDocumentText(file);
   if (!extracted.ok) return { error: extracted.error, profile: null, importedAt: null };
 
-  const result = await importResumeText(extracted.text);
+  const access = await resolveAi(supabase, user);
+  if (!access.ok) return { error: access.error, profile: null, importedAt: null };
+
+  const result = await importResumeText(access.config, extracted.text);
   if (!result.ok) return { error: result.error, profile: null, importedAt: null };
 
   return { error: null, profile: result.data, importedAt: Date.now() };
@@ -167,7 +170,8 @@ export type InterviewTurnResult = { ok: true; turn: InterviewTurn } | { ok: fals
 export async function nextInterviewTurn(transcript: unknown, analysisId?: string): Promise<InterviewTurnResult> {
   const supabase = await createClient();
   const user = await requireUser(supabase);
-  if (!isAiConfigured()) return { ok: false, error: "AI is not configured. Add OPENCODE_API_KEY to the environment." };
+  const access = await resolveAi(supabase, user);
+  if (!access.ok) return { ok: false, error: access.error };
 
   const parsed = transcriptSchema.safeParse(transcript);
   if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid conversation." };
@@ -176,7 +180,7 @@ export async function nextInterviewTurn(transcript: unknown, analysisId?: string
   if (error) return { ok: false, error: "Unable to load your profile." };
 
   const focus = await loadFocus(supabase, user.id, analysisId);
-  const result = await interviewTurn(profile, parsed.data, focus);
+  const result = await interviewTurn(access.config, profile, parsed.data, focus);
   return result.ok ? { ok: true, turn: result.data } : result;
 }
 
@@ -186,7 +190,8 @@ export type InterviewSummaryResult = { ok: true; strengths: Strength[] } | { ok:
 export async function proposeStrengths(transcript: unknown, analysisId?: string): Promise<InterviewSummaryResult> {
   const supabase = await createClient();
   const user = await requireUser(supabase);
-  if (!isAiConfigured()) return { ok: false, error: "AI is not configured. Add OPENCODE_API_KEY to the environment." };
+  const access = await resolveAi(supabase, user);
+  if (!access.ok) return { ok: false, error: access.error };
 
   const parsed = transcriptSchema.safeParse(transcript);
   if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? "Invalid conversation." };
@@ -198,7 +203,7 @@ export async function proposeStrengths(transcript: unknown, analysisId?: string)
   if (error) return { ok: false, error: "Unable to load your profile." };
 
   const focus = await loadFocus(supabase, user.id, analysisId);
-  const result = await summarizeInterview(profile, parsed.data, focus);
+  const result = await summarizeInterview(access.config, profile, parsed.data, focus);
   return result.ok ? { ok: true, strengths: result.data } : result;
 }
 

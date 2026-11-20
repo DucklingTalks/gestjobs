@@ -3,7 +3,7 @@ import { z } from "zod";
 import type { Profile } from "@/lib/validation/profile";
 import { yearMonthSchema } from "@/lib/validation/profile";
 
-import { generateJson, type AiResult } from "./client";
+import { generateJson, type AiConfig, type AiResult } from "./client";
 
 /** Tailored CV content. Contact details are added locally when rendering. */
 export const tailoredCvSchema = z.object({
@@ -225,9 +225,9 @@ function profileAndPosting(profile: Profile, jobText: string): string[] {
   ];
 }
 
-export async function analyzeFit(profile: Profile, jobText: string): Promise<AiResult<FitResult>> {
+export async function analyzeFit(ai: AiConfig, profile: Profile, jobText: string): Promise<AiResult<FitResult>> {
   const prompt = profileAndPosting(profile, jobText).join("\n");
-  const result = await generateJson({ system: SYSTEM, prompt, schema: fitResultSchema, maxTokens: 12_000 });
+  const result = await generateJson({ ai, system: SYSTEM, prompt, schema: fitResultSchema, maxTokens: 12_000 });
   if (!result.ok || writesDocumentsFor(result.data.score)) return result;
   // Low fit: the documents are written only on request, even if the model wrote them anyway.
   return { ok: true, data: { ...result.data, coverLetter: "", cv: tailoredCvSchema.parse({}) } };
@@ -235,6 +235,7 @@ export async function analyzeFit(profile: Profile, jobText: string): Promise<AiR
 
 /** Cover letter and CV on request, for an analysis whose fit was too low to write them automatically. */
 export async function writeFitDocuments(
+  ai: AiConfig,
   profile: Profile,
   jobText: string,
   assessment: { language: string; score: number; summary: string; strengths: string[]; gaps: string[] },
@@ -253,7 +254,7 @@ export async function writeFitDocuments(
     `<language>${assessment.language}</language>`,
   ].join("\n");
 
-  return generateJson({ system: DOCUMENTS_SYSTEM, prompt, schema: fitDocumentsSchema, maxTokens: 10_000 });
+  return generateJson({ ai, system: DOCUMENTS_SYSTEM, prompt, schema: fitDocumentsSchema, maxTokens: 10_000 });
 }
 
 /** Append the candidate's name under the AI-written sign-off. */

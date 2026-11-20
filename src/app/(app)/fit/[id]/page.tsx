@@ -6,7 +6,7 @@ import { z } from "zod";
 import { SubmitButton } from "@/components/form-buttons";
 import { fitLabel, FitScoreHero } from "@/components/fit-score";
 import { buttonStyles, Card, formatDateTime, PageHeader, PageShell } from "@/components/ui";
-import { isAiConfigured } from "@/lib/ai/client";
+import { resolveAi } from "@/lib/ai/access";
 import { tailoredCvSchema } from "@/lib/ai/fit";
 import { applyKeywords, parseStoredKeywords } from "@/lib/ats/cv";
 import { profileEvidence } from "@/lib/ats/keywords";
@@ -48,6 +48,7 @@ export default async function FitAnalysisPage({ params }: { params: Promise<{ id
   if (!analysis) notFound();
 
   const profile = profileFromRow(profileRow);
+  const aiEnabled = (await resolveAi(supabase, user)).ok;
   // Low fits skip the documents until the candidate asks for them.
   const hasDocuments = analysis.cover_letter.trim() !== "";
   const keywords = parseStoredKeywords(analysis.keywords);
@@ -109,7 +110,7 @@ export default async function FitAnalysisPage({ params }: { params: Promise<{ id
             </div>
           ) : null}
 
-          {isAiConfigured() ? (
+          {aiEnabled ? (
             <div
               id="rerun"
               className="mt-6 flex scroll-mt-20 flex-col gap-3 border-t border-slate-100 pt-4 sm:flex-row sm:items-center sm:justify-between"

@@ -40,13 +40,15 @@ describe("fitResultSchema", () => {
   });
 });
 
+const ai = { provider: "anthropic" as const, apiKey: "test", baseURL: "https://api.anthropic.com", model: "claude-haiku-5-5" };
+
 describe("analyzeFit", () => {
   it("drops documents the model wrote for a low fit anyway", async () => {
     mocked.mockResolvedValue({
       ok: true,
       data: fitResultSchema.parse({ ...base, score: 4, coverLetter: "Dear team,", cv: { summary: "Engineer." } }),
     });
-    const result = await analyzeFit(profile, "posting");
+    const result = await analyzeFit(ai, profile, "posting");
     expect(result.ok && result.data.coverLetter).toBe("");
     expect(result.ok && result.data.cv.summary).toBe("");
   });
@@ -56,13 +58,13 @@ describe("analyzeFit", () => {
       ok: true,
       data: fitResultSchema.parse({ ...base, score: 7, coverLetter: "Dear team,", cv: { summary: "Engineer." } }),
     });
-    const result = await analyzeFit(profile, "posting");
+    const result = await analyzeFit(ai, profile, "posting");
     expect(result.ok && result.data.coverLetter).toBe("Dear team,");
   });
 
   it("asks the model to skip the documents below the threshold", async () => {
     mocked.mockResolvedValue({ ok: false, error: "x" });
-    await analyzeFit(profile, "posting");
+    await analyzeFit(ai, profile, "posting");
     expect(mocked.mock.calls[0][0].system).toContain('If the score is 4 or lower, return "coverLetter": ""');
   });
 });
@@ -70,7 +72,7 @@ describe("analyzeFit", () => {
 describe("writeFitDocuments", () => {
   it("sends the assessment and the language to the model", async () => {
     mocked.mockResolvedValue({ ok: false, error: "x" });
-    await writeFitDocuments(profile, "The posting", {
+    await writeFitDocuments(ai, profile, "The posting", {
       language: "es",
       score: 3,
       summary: "Poco encaje.",
